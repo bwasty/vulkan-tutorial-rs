@@ -4,7 +4,9 @@ extern crate vulkano_win;
 
 use std::sync::Arc;
 
+use vulkano::instance;
 use vulkano::instance::{ Instance, ApplicationInfo, Version, InstanceExtensions };
+use vulkano::instance::debug::{DebugCallback, MessageTypes};
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -12,8 +14,19 @@ use winit::dpi::LogicalSize;
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
+const VALIDATION_LAYERS: &'static [&'static str] =  &[
+    "VK_LAYER_LUNARG_standard_validation"
+];
+
+// MoltenVK doesn't have any layers by default
+#[cfg(all(debug_assertions, not(target_os = "macos")))]
+const ENABLE_VALIDATION_LAYERS: bool = true;
+#[cfg(any(not(debug_assertions), target_os = "macos"))]
+const ENABLE_VALIDATION_LAYERS: bool = false;
+
 struct HelloTriangleApplication {
-    instance: Option<Arc<Instance>>
+    instance: Option<Arc<Instance>>,
+    debug_callback: Option<DebugCallback>,
 }
 impl HelloTriangleApplication {
     pub fn run(&mut self) {
@@ -31,9 +44,14 @@ impl HelloTriangleApplication {
 
     fn init_vulkan(&mut self) {
         self.create_instance();
+        self.setup_debug_callback();
     }
 
     fn create_instance(&mut self) {
+        if ENABLE_VALIDATION_LAYERS && !self.check_validation_layer_support() {
+            panic!("validation layers requested, but not available!")
+        }
+
         let extensions = InstanceExtensions::supported_by_core()
             .expect("failed to retrieve supported extensions");
         println!("Supported extensions: {:?}", extensions);
@@ -45,9 +63,65 @@ impl HelloTriangleApplication {
             engine_version: Some(Version { major: 1, minor: 0, patch: 0 }),
         };
 
-        let extensions = vulkano_win::required_extensions();
-        self.instance = Some(Instance::new(Some(&app_info), &extensions, None)
-            .expect("failed to create Vulkan instance"))
+        let extensions = self.get_required_extensions();
+
+        if ENABLE_VALIDATION_LAYERS {
+            self.instance = Some(Instance::new(Some(&app_info), &extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+                .expect("failed to create Vulkan instance"))
+        } else {
+            self.instance = Some(Instance::new(Some(&app_info), &extensions, None)
+                .expect("failed to create Vulkan instance"))
+        }
+
+    }
+
+    fn setup_debug_callback(&mut self) {
+        if !ENABLE_VALIDATION_LAYERS  {
+            return;
+        }
+
+        let instance = self.instance.as_ref().unwrap();
+        let msg_types = MessageTypes {
+            error: true,
+            warning: true,
+            performance_warning: true,
+            information: false,
+            debug: true,
+        };
+        self.debug_callback = DebugCallback::new(instance, msg_types, |msg| {
+            println!("validation layer: {:?}", msg.description);
+        }).ok();
+    }
+
+    fn check_validation_layer_support(&self) -> bool {
+        // println!("Available layers:");
+        // for layer in instance::layers_list().unwrap() {
+        //     println!("{}", layer.name());
+        // }
+        for layer_name in VALIDATION_LAYERS.iter() {
+            let mut layer_found = false;
+            for layer_properties in instance::layers_list().unwrap() {
+                if *layer_name == layer_properties.name() {
+                    layer_found = true;
+                    break
+                }
+            }
+            if !layer_found {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    fn get_required_extensions(&self) -> InstanceExtensions {
+        let mut extensions = vulkano_win::required_extensions();
+        if ENABLE_VALIDATION_LAYERS {
+            // TODO!: this should be ext_debug_utils (_report is deprecated), but that doesn't exist yet in vulkano
+            extensions.ext_debug_report = true;
+        }
+
+        return extensions;
     }
 
     fn main_loop(&self) {
@@ -60,6 +134,6 @@ impl HelloTriangleApplication {
 }
 
 fn main() {
-    let mut app = HelloTriangleApplication { instance: None };
+    let mut app = HelloTriangleApplication { instance: None, debug_callback: None };
     app.run();
 }
