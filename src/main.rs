@@ -4,8 +4,14 @@ extern crate vulkano_win;
 
 use std::sync::Arc;
 
-use vulkano::instance;
-use vulkano::instance::{ Instance, ApplicationInfo, Version, InstanceExtensions };
+use vulkano::instance::{
+    Instance,
+    InstanceExtensions,
+    layers_list,
+    ApplicationInfo,
+    Version,
+    PhysicalDevice,
+};
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
 
 use winit::WindowBuilder;
@@ -24,11 +30,18 @@ const ENABLE_VALIDATION_LAYERS: bool = true;
 #[cfg(any(not(debug_assertions), target_os = "macos"))]
 const ENABLE_VALIDATION_LAYERS: bool = false;
 
-struct HelloTriangleApplication {
+#[derive(Default)]
+struct HelloTriangleApplication<'a> {
     instance: Option<Arc<Instance>>,
     debug_callback: Option<DebugCallback>,
+
+    physical_device: Option<PhysicalDevice<'a>>,
 }
-impl HelloTriangleApplication {
+impl<'a> HelloTriangleApplication<'a> {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
     pub fn run(&mut self) {
         self.init_window();
         self.init_vulkan();
@@ -65,14 +78,25 @@ impl HelloTriangleApplication {
 
         let extensions = self.get_required_extensions();
 
-        if ENABLE_VALIDATION_LAYERS {
-            self.instance = Some(Instance::new(Some(&app_info), &extensions, VALIDATION_LAYERS.iter().map(|s| *s))
-                .expect("failed to create Vulkan instance"))
-        } else {
-            self.instance = Some(Instance::new(Some(&app_info), &extensions, None)
-                .expect("failed to create Vulkan instance"))
-        }
+        let instance =
+            if ENABLE_VALIDATION_LAYERS {
+                Instance::new(Some(&app_info), &extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+                    .expect("failed to create Vulkan instance")
+            } else {
+                Instance::new(Some(&app_info), &extensions, None)
+                    .expect("failed to create Vulkan instance")
+            };
 
+        // let devices = PhysicalDevice::enumerate(&instance);
+        // for device in devices {
+        //     if self.is_device_suitable(&device) {
+        //         self.physical_device = Some(device);
+        //         break;
+        //     }
+        // }
+        self.pick_physical_device(instance);
+
+        self.instance = Some(instance);
     }
 
     fn setup_debug_callback(&mut self) {
@@ -93,6 +117,34 @@ impl HelloTriangleApplication {
         }).ok();
     }
 
+    // TODO!: hack to work around the borrow checker...
+    // pub fn unsafe_get_instance(&mut self) -> &'static Arc<Instance> {
+    //     unsafe {
+    //         let inst = &**self.instance.as_ref().unwrap();
+    //         &*(inst as *const Instance)
+    //     }
+    // }
+
+    fn pick_physical_device(&mut self, instance: Arc<Instance>) {
+        // let instance = self.instance.as_ref().unwrap();
+        // let instance = Arc::new(self.unsafe_get_instance());
+        let devices = PhysicalDevice::enumerate(&instance);
+        for device in devices {
+            if self.is_device_suitable(&device) {
+                self.physical_device = Some(device);
+                break;
+            }
+        }
+
+        if self.physical_device.is_none() {
+            panic!("failed to find a suitable GPU!")
+        }
+    }
+
+    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
+        true
+    }
+
     fn check_validation_layer_support(&self) -> bool {
         // println!("Available layers:");
         // for layer in instance::layers_list().unwrap() {
@@ -100,7 +152,7 @@ impl HelloTriangleApplication {
         // }
         for layer_name in VALIDATION_LAYERS.iter() {
             let mut layer_found = false;
-            for layer_properties in instance::layers_list().unwrap() {
+            for layer_properties in layers_list().unwrap() {
                 if *layer_name == layer_properties.name() {
                     layer_found = true;
                     break
@@ -134,6 +186,6 @@ impl HelloTriangleApplication {
 }
 
 fn main() {
-    let mut app = HelloTriangleApplication { instance: None, debug_callback: None };
+    let mut app = HelloTriangleApplication::new();
     app.run();
 }
