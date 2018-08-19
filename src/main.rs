@@ -16,7 +16,17 @@ use vulkano::instance::{
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
 use vulkano::device::{Device, DeviceExtensions, Queue};
-use vulkano::swapchain::{Surface, Capabilities};
+use vulkano::swapchain::{
+    Surface,
+    Capabilities,
+    ColorSpace,
+    SupportedPresentModes, PresentMode,
+    Swapchain,
+    CompositeAlpha,
+};
+use vulkano::format::{Format};
+use vulkano::image::ImageUsage;
+use vulkano::sync::SharingMode;
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -67,6 +77,7 @@ struct HelloTriangleApplication {
     graphics_queue: Option<Arc<Queue>>,
     present_queue: Option<Arc<Queue>>,
     surface: Option<Arc<Surface<winit::Window>>>,
+    swapchain: Option<Arc<Swapchain<winit::Window>>>,
 }
 #[allow(dead_code)] // TODO: TMP
 impl HelloTriangleApplication {
@@ -93,6 +104,7 @@ impl HelloTriangleApplication {
         self.create_surface();
         self.pick_physical_device();
         self.create_logical_device();
+        self.create_swap_chain();
     }
 
     fn create_instance(&mut self) {
@@ -213,6 +225,87 @@ impl HelloTriangleApplication {
     fn query_swap_chain_support(&self, device: &PhysicalDevice) -> Capabilities {
         self.surface.as_ref().unwrap().capabilities(*device)
             .expect("failed to get surface capabilities")
+    }
+
+    fn choose_swap_surface_format(available_formats: &[(Format, ColorSpace)]) -> (Format, ColorSpace) {
+        // NOTE: the 'preferred format' mentioned in the tutorial doesn't seem to be
+        // queryable in Vulkano (no VK_FORMAT_UNDEFINED enum)
+        *available_formats.iter()
+            .find(|(format, color_space)|
+                *format == Format::B8G8R8A8Unorm && *color_space == ColorSpace::SrgbNonLinear
+            )
+            .unwrap_or_else(|| &available_formats[0])
+    }
+
+    fn choose_swap_present_mode(available_present_modes: SupportedPresentModes) -> PresentMode {
+        if available_present_modes.mailbox {
+            PresentMode::Mailbox
+        } else if available_present_modes.immediate {
+            PresentMode::Immediate
+        } else {
+            PresentMode::Fifo
+        }
+    }
+
+    fn choose_swap_extent(capabilities: &Capabilities) -> [u32; 2] {
+        if let Some(current_extent) = capabilities.current_extent {
+            return current_extent
+        } else {
+            let mut actual_extent = [WIDTH, HEIGHT];
+            actual_extent[0] = capabilities.min_image_extent[0]
+                .max(capabilities.max_image_extent[0].min(actual_extent[0]));
+            actual_extent[1] = capabilities.min_image_extent[1]
+                .max(capabilities.max_image_extent[1].min(actual_extent[1]));
+            actual_extent
+        }
+    }
+
+    fn create_swap_chain(&mut self) {
+        let instance = self.instance.as_ref().unwrap();
+        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
+
+        let capabilities = self.query_swap_chain_support(&physical_device);
+
+        let surface_format = Self::choose_swap_surface_format(&capabilities.supported_formats);
+        let present_mode = Self::choose_swap_present_mode(capabilities.present_modes);
+        let extent = Self::choose_swap_extent(&capabilities);
+
+        let mut image_count = capabilities.min_image_count + 1;
+        if capabilities.max_image_count.is_some() && image_count > capabilities.max_image_count.unwrap() {
+            image_count = capabilities.max_image_count.unwrap();
+        }
+
+        let image_usage = ImageUsage {
+            color_attachment: true,
+            .. ImageUsage::none()
+        };
+
+        let indices = Self::find_queue_families(&physical_device);
+
+        let sharing: SharingMode = if indices.graphics_family != indices.present_family {
+            vec![self.graphics_queue.as_ref().unwrap(), self.present_queue.as_ref().unwrap()].as_slice().into()
+        } else {
+            self.graphics_queue.as_ref().unwrap().into()
+        };
+
+        let (swapchain, images) = Swapchain::new(
+            self.device.as_ref().unwrap().clone(),
+            self.surface.as_ref().unwrap().clone(),
+            image_count,
+            surface_format.0, // TODO!? (color space?)
+            extent,
+            1, // layers
+            image_usage,
+            sharing,
+            capabilities.current_transform,
+            CompositeAlpha::Opaque,
+            present_mode,
+            true, // clipped
+            None, // old_swapchain
+        ).expect("failed to create swap chain!");
+
+        self.swapchain = Some(swapchain);
+        println!("Swapchain created!");
     }
 
     fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
