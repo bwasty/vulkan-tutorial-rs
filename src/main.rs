@@ -11,8 +11,10 @@ use vulkano::instance::{
     ApplicationInfo,
     Version,
     PhysicalDevice,
+    Features,
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
+use vulkano::device::{Device, DeviceExtensions};
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -36,7 +38,9 @@ struct HelloTriangleApplication {
     debug_callback: Option<DebugCallback>,
 
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
+    device: Option<Arc<Device>>,
 }
+#[allow(dead_code)] // TODO: TMP
 impl HelloTriangleApplication {
     pub fn new() -> Self {
         Default::default()
@@ -59,6 +63,7 @@ impl HelloTriangleApplication {
         self.create_instance();
         self.setup_debug_callback();
         self.pick_physical_device();
+        self.create_logical_device();
     }
 
     fn create_instance(&mut self) {
@@ -115,9 +120,36 @@ impl HelloTriangleApplication {
             .expect("failed to find a suitable GPU!");
     }
 
-    fn is_device_suitable(&self, _device: &PhysicalDevice) -> bool {
-        true
+    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
+        device.queue_families().any(|q| q.supports_graphics())
     }
+
+    fn create_logical_device(&mut self) {
+        let instance = self.instance.as_ref().unwrap();
+        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
+        let queue_family = physical_device.queue_families()
+            .find(|&q| q.supports_graphics())
+            .unwrap();
+
+        let queue_priority = 1.0;
+
+        // NOTE: vulkano doesn't seem to support passing validation layers for device creation (because they're deprecated?)
+        // if ENABLE_VALIDATION_LAYERS {
+        // } else {
+        // }
+
+        let (device, mut queues) = Device::new(physical_device, &Features::none(), &DeviceExtensions::none(),
+            [(queue_family, queue_priority)].iter().cloned())
+            .expect("failed to create logical device!");
+
+        self.device = Some(device);
+    }
+
+    // fn find_queue_families(device: &PhysicalDevice) {
+    //     let queue_family = device.queue_families()
+    //         .find(|&q| q.supports_graphics())
+    //         .expect("couldn't find a graphical queue family");
+    // }
 
     fn check_validation_layer_support(&self) -> bool {
         // println!("Available layers:");
@@ -155,7 +187,8 @@ impl HelloTriangleApplication {
     }
 
     fn cleanup(&self) {
-
+        // TODO!: trust automatic drop and remove or use std::mem::drop here? (instance, device etc.)
+        // -> check with validation layers for issues with order...
     }
 }
 
