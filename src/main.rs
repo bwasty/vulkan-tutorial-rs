@@ -14,7 +14,7 @@ use vulkano::instance::{
     Features,
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
-use vulkano::device::{Device, DeviceExtensions};
+use vulkano::device::{Device, DeviceExtensions, Queue};
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -32,6 +32,19 @@ const ENABLE_VALIDATION_LAYERS: bool = true;
 #[cfg(any(not(debug_assertions), target_os = "macos"))]
 const ENABLE_VALIDATION_LAYERS: bool = false;
 
+struct QueueFamilyIndices {
+    graphics_family: i32,
+}
+impl QueueFamilyIndices {
+    fn new() -> Self {
+        Self { graphics_family: -1 }
+    }
+
+    fn is_complete(&self) -> bool {
+        self.graphics_family >= 0
+    }
+}
+
 #[derive(Default)]
 struct HelloTriangleApplication {
     instance: Option<Arc<Instance>>,
@@ -39,6 +52,7 @@ struct HelloTriangleApplication {
 
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
     device: Option<Arc<Device>>,
+    graphics_queue: Option<Arc<Queue>>,
 }
 #[allow(dead_code)] // TODO: TMP
 impl HelloTriangleApplication {
@@ -67,7 +81,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_instance(&mut self) {
-        if ENABLE_VALIDATION_LAYERS && !self.check_validation_layer_support() {
+        if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
             panic!("validation layers requested, but not available!")
         }
 
@@ -82,7 +96,7 @@ impl HelloTriangleApplication {
             engine_version: Some(Version { major: 1, minor: 0, patch: 0 }),
         };
 
-        let extensions = self.get_required_extensions();
+        let extensions = Self::get_required_extensions();
 
         let instance =
             if ENABLE_VALIDATION_LAYERS {
@@ -116,42 +130,52 @@ impl HelloTriangleApplication {
     fn pick_physical_device(&mut self) {
         let instance = self.instance.as_ref().unwrap();
         self.physical_device_index = PhysicalDevice::enumerate(&instance)
-            .position(|device| self.is_device_suitable(&device))
+            .position(|device| Self::is_device_suitable(&device))
             .expect("failed to find a suitable GPU!");
     }
 
-    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
-        device.queue_families().any(|q| q.supports_graphics())
+    fn is_device_suitable(device: &PhysicalDevice) -> bool {
+        Self::find_queue_families(device).is_complete()
     }
 
     fn create_logical_device(&mut self) {
         let instance = self.instance.as_ref().unwrap();
         let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
+
+        let indices = Self::find_queue_families(&physical_device);
         let queue_family = physical_device.queue_families()
-            .find(|&q| q.supports_graphics())
-            .unwrap();
+            .nth(indices.graphics_family as usize).unwrap();
 
         let queue_priority = 1.0;
 
-        // NOTE: vulkano doesn't seem to support passing validation layers for device creation (because they're deprecated?)
-        // if ENABLE_VALIDATION_LAYERS {
-        // } else {
-        // }
+        // NOTE: the tutorial recommends passing the validation layers as well
+        // for legacy reasons (if ENABLE_VALIDATION_LAYERS is true). Vulkano handles that
+        // for us internally.
 
         let (device, mut queues) = Device::new(physical_device, &Features::none(), &DeviceExtensions::none(),
             [(queue_family, queue_priority)].iter().cloned())
             .expect("failed to create logical device!");
 
         self.device = Some(device);
+        self.graphics_queue = queues.next();
     }
 
-    // fn find_queue_families(device: &PhysicalDevice) {
-    //     let queue_family = device.queue_families()
-    //         .find(|&q| q.supports_graphics())
-    //         .expect("couldn't find a graphical queue family");
-    // }
+    fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
+        let mut indices = QueueFamilyIndices::new();
+        for (i, queue_family) in device.queue_families().enumerate() {
+            if queue_family.supports_graphics() {
+                indices.graphics_family = i as i32;
+            }
 
-    fn check_validation_layer_support(&self) -> bool {
+            if indices.is_complete() {
+                break;
+            }
+        }
+
+        indices
+    }
+
+    fn check_validation_layer_support() -> bool {
         // println!("Available layers:");
         // for layer in instance::layers_list().unwrap() {
         //     println!("{}", layer.name());
@@ -172,7 +196,7 @@ impl HelloTriangleApplication {
         return true;
     }
 
-    fn get_required_extensions(&self) -> InstanceExtensions {
+    fn get_required_extensions() -> InstanceExtensions {
         let mut extensions = vulkano_win::required_extensions();
         if ENABLE_VALIDATION_LAYERS {
             // TODO!: this should be ext_debug_utils (_report is deprecated), but that doesn't exist yet in vulkano
