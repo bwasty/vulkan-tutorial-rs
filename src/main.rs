@@ -36,7 +36,7 @@ use vulkano_win::VkSurfaceBuild;
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
-const VALIDATION_LAYERS: &'static [&'static str] =  &[
+const VALIDATION_LAYERS: &[&str] =  &[
     "VK_LAYER_LUNARG_standard_validation"
 ];
 
@@ -101,7 +101,7 @@ impl HelloTriangleApplication {
     fn init_window(&self) {
         WindowBuilder::new()
             .with_title("Vulkan")
-            .with_dimensions(LogicalSize::new(WIDTH as f64, HEIGHT as f64));
+            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
     }
 
     fn init_vulkan(&mut self) {
@@ -171,12 +171,13 @@ impl HelloTriangleApplication {
         let indices = Self::find_queue_families(device);
         let extensions_supported = Self::check_device_extension_support(device);
 
-        let mut swap_chain_adequate = false;
-        if extensions_supported {
-            let capabilities = self.query_swap_chain_support(device);
-            swap_chain_adequate = !capabilities.supported_formats.is_empty() &&
-                !capabilities.present_modes.iter().next().is_none();
-        }
+        let swap_chain_adequate = if extensions_supported {
+                let capabilities = self.query_swap_chain_support(device);
+                !capabilities.supported_formats.is_empty() &&
+                    capabilities.present_modes.iter().next().is_some()
+            } else {
+                false
+            };
 
         indices.is_complete() && extensions_supported && swap_chain_adequate
     }
@@ -356,7 +357,7 @@ impl HelloTriangleApplication {
             }
         }
 
-        return true;
+        true
     }
 
     fn get_required_extensions() -> InstanceExtensions {
@@ -366,7 +367,7 @@ impl HelloTriangleApplication {
             extensions.ext_debug_report = true;
         }
 
-        return extensions;
+        extensions
     }
 
     fn main_loop(&self) {
