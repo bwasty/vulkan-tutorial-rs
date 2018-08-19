@@ -31,13 +31,13 @@ const ENABLE_VALIDATION_LAYERS: bool = true;
 const ENABLE_VALIDATION_LAYERS: bool = false;
 
 #[derive(Default)]
-struct HelloTriangleApplication<'a> {
+struct HelloTriangleApplication {
     instance: Option<Arc<Instance>>,
     debug_callback: Option<DebugCallback>,
 
-    physical_device: Option<PhysicalDevice<'a>>,
+    physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
 }
-impl<'a> HelloTriangleApplication<'a> {
+impl HelloTriangleApplication {
     pub fn new() -> Self {
         Default::default()
     }
@@ -58,6 +58,7 @@ impl<'a> HelloTriangleApplication<'a> {
     fn init_vulkan(&mut self) {
         self.create_instance();
         self.setup_debug_callback();
+        self.pick_physical_device();
     }
 
     fn create_instance(&mut self) {
@@ -86,16 +87,6 @@ impl<'a> HelloTriangleApplication<'a> {
                 Instance::new(Some(&app_info), &extensions, None)
                     .expect("failed to create Vulkan instance")
             };
-
-        // let devices = PhysicalDevice::enumerate(&instance);
-        // for device in devices {
-        //     if self.is_device_suitable(&device) {
-        //         self.physical_device = Some(device);
-        //         break;
-        //     }
-        // }
-        self.pick_physical_device(instance);
-
         self.instance = Some(instance);
     }
 
@@ -117,31 +108,14 @@ impl<'a> HelloTriangleApplication<'a> {
         }).ok();
     }
 
-    // TODO!: hack to work around the borrow checker...
-    // pub fn unsafe_get_instance(&mut self) -> &'static Arc<Instance> {
-    //     unsafe {
-    //         let inst = &**self.instance.as_ref().unwrap();
-    //         &*(inst as *const Instance)
-    //     }
-    // }
-
-    fn pick_physical_device(&mut self, instance: Arc<Instance>) {
-        // let instance = self.instance.as_ref().unwrap();
-        // let instance = Arc::new(self.unsafe_get_instance());
-        let devices = PhysicalDevice::enumerate(&instance);
-        for device in devices {
-            if self.is_device_suitable(&device) {
-                self.physical_device = Some(device);
-                break;
-            }
-        }
-
-        if self.physical_device.is_none() {
-            panic!("failed to find a suitable GPU!")
-        }
+    fn pick_physical_device(&mut self) {
+        let instance = self.instance.as_ref().unwrap();
+        self.physical_device_index = PhysicalDevice::enumerate(&instance)
+            .position(|device| self.is_device_suitable(&device))
+            .expect("failed to find a suitable GPU!");
     }
 
-    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
+    fn is_device_suitable(&self, _device: &PhysicalDevice) -> bool {
         true
     }
 
