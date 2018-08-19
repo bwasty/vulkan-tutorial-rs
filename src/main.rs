@@ -15,9 +15,11 @@ use vulkano::instance::{
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
 use vulkano::device::{Device, DeviceExtensions, Queue};
+use vulkano::swapchain::Surface;
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
+use vulkano_win::VkSurfaceBuild;
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -53,6 +55,7 @@ struct HelloTriangleApplication {
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
     device: Option<Arc<Device>>,
     graphics_queue: Option<Arc<Queue>>,
+    surface: Option<Arc<Surface<winit::Window>>>,
 }
 #[allow(dead_code)] // TODO: TMP
 impl HelloTriangleApplication {
@@ -76,6 +79,7 @@ impl HelloTriangleApplication {
     fn init_vulkan(&mut self) {
         self.create_instance();
         self.setup_debug_callback();
+        self.create_surface();
         self.pick_physical_device();
         self.create_logical_device();
     }
@@ -158,6 +162,15 @@ impl HelloTriangleApplication {
 
         self.device = Some(device);
         self.graphics_queue = queues.next();
+    }
+
+    fn create_surface(&mut self) {
+        let instance = self.instance.as_ref().unwrap();
+
+        let /*mut*/ events_loop = winit::EventsLoop::new();
+        self.surface = WindowBuilder::new().build_vk_surface(&events_loop, instance.clone())
+            .expect("failed to create window surface!")
+            .into();
     }
 
     fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
