@@ -26,6 +26,7 @@ use vulkano::swapchain::{
 };
 use vulkano::format::{Format};
 use vulkano::image::ImageUsage;
+use vulkano::image::swapchain::SwapchainImage;
 use vulkano::sync::SharingMode;
 
 use winit::WindowBuilder;
@@ -71,13 +72,18 @@ impl QueueFamilyIndices {
 struct HelloTriangleApplication {
     instance: Option<Arc<Instance>>,
     debug_callback: Option<DebugCallback>,
+    surface: Option<Arc<Surface<winit::Window>>>,
 
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
     device: Option<Arc<Device>>,
+
     graphics_queue: Option<Arc<Queue>>,
     present_queue: Option<Arc<Queue>>,
-    surface: Option<Arc<Surface<winit::Window>>>,
-    swapchain: Option<Arc<Swapchain<winit::Window>>>,
+
+    swap_chain: Option<Arc<Swapchain<winit::Window>>>,
+    swap_chain_images: Option<Vec<Arc<SwapchainImage<winit::Window>>>>,
+    swap_chain_image_format: Option<Format>,
+    swap_chain_extent: Option<[u32; 2]>,
 }
 #[allow(dead_code)] // TODO: TMP
 impl HelloTriangleApplication {
@@ -288,7 +294,7 @@ impl HelloTriangleApplication {
             self.graphics_queue.as_ref().unwrap().into()
         };
 
-        let (swapchain, images) = Swapchain::new(
+        let (swap_chain, images) = Swapchain::new(
             self.device.as_ref().unwrap().clone(),
             self.surface.as_ref().unwrap().clone(),
             image_count,
@@ -304,7 +310,10 @@ impl HelloTriangleApplication {
             None, // old_swapchain
         ).expect("failed to create swap chain!");
 
-        self.swapchain = Some(swapchain);
+        self.swap_chain = Some(swap_chain);
+        self.swap_chain_images = Some(images);
+        self.swap_chain_image_format = Some(surface_format.0);
+        self.swap_chain_extent = Some(extent);
         println!("Swapchain created!");
     }
 
