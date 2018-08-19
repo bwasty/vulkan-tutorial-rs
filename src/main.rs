@@ -16,7 +16,7 @@ use vulkano::instance::{
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
 use vulkano::device::{Device, DeviceExtensions, Queue};
-use vulkano::swapchain::Surface;
+use vulkano::swapchain::{Surface, Capabilities};
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -28,6 +28,14 @@ const HEIGHT: u32 = 600;
 const VALIDATION_LAYERS: &'static [&'static str] =  &[
     "VK_LAYER_LUNARG_standard_validation"
 ];
+
+/// Required device extensions
+fn device_extensions() -> DeviceExtensions {
+    DeviceExtensions {
+        khr_swapchain: true,
+        .. vulkano::device::DeviceExtensions::none()
+    }
+}
 
 // MoltenVK doesn't have any layers by default
 #[cfg(all(debug_assertions, not(target_os = "macos")))]
@@ -137,12 +145,28 @@ impl HelloTriangleApplication {
     fn pick_physical_device(&mut self) {
         let instance = self.instance.as_ref().unwrap();
         self.physical_device_index = PhysicalDevice::enumerate(&instance)
-            .position(|device| Self::is_device_suitable(&device))
+            .position(|device| self.is_device_suitable(&device))
             .expect("failed to find a suitable GPU!");
     }
 
-    fn is_device_suitable(device: &PhysicalDevice) -> bool {
-        Self::find_queue_families(device).is_complete()
+    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
+        let indices = Self::find_queue_families(device);
+        let extensions_supported = Self::check_device_extension_support(device);
+
+        let mut swap_chain_adequate = false;
+        if extensions_supported {
+            let capabilities = self.query_swap_chain_support(device);
+            swap_chain_adequate = !capabilities.supported_formats.is_empty() &&
+                !capabilities.present_modes.iter().next().is_none();
+        }
+
+        indices.is_complete() && extensions_supported && swap_chain_adequate
+    }
+
+    fn check_device_extension_support(device: &PhysicalDevice) -> bool {
+        let available_extensions = DeviceExtensions::supported_by_device(*device);
+        let device_extensions = device_extensions();
+        available_extensions.intersection(&device_extensions) == device_extensions
     }
 
     fn create_logical_device(&mut self) {
@@ -165,7 +189,7 @@ impl HelloTriangleApplication {
         // for us internally.
 
         let (device, mut queues) = Device::new(physical_device, &Features::none(),
-            &DeviceExtensions::none(), queue_families)
+            &device_extensions(), queue_families)
             .expect("failed to create logical device!");
 
         self.device = Some(device);
@@ -184,6 +208,11 @@ impl HelloTriangleApplication {
         self.surface = WindowBuilder::new().build_vk_surface(&events_loop, instance.clone())
             .expect("failed to create window surface!")
             .into();
+    }
+
+    fn query_swap_chain_support(&self, device: &PhysicalDevice) -> Capabilities {
+        self.surface.as_ref().unwrap().capabilities(*device)
+            .expect("failed to get surface capabilities")
     }
 
     fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
