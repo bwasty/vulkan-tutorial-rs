@@ -48,6 +48,7 @@ use vulkano::framebuffer::{
     Framebuffer,
     FramebufferAbstract,
 };
+use vulkano::command_buffer::pool::StandardCommandPool;
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -108,6 +109,8 @@ struct HelloTriangleApplication {
     render_pass: Option<Arc<RenderPassAbstract>>,
     graphics_pipeline: Option<Arc<GraphicsPipelineAbstract>>,
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract>>,
+
+    command_pool: Option<Arc<StandardCommandPool>>,
 }
 impl HelloTriangleApplication {
     pub fn new() -> Self {
@@ -139,6 +142,7 @@ impl HelloTriangleApplication {
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
+        self.create_command_pool();
     }
 
     fn create_instance(&mut self) {
@@ -189,8 +193,7 @@ impl HelloTriangleApplication {
     }
 
     fn pick_physical_device(&mut self) {
-        let instance = self.instance.as_ref().unwrap();
-        self.physical_device_index = PhysicalDevice::enumerate(&instance)
+        self.physical_device_index = PhysicalDevice::enumerate(&self.instance())
             .position(|device| self.is_device_suitable(&device))
             .expect("failed to find a suitable GPU!");
     }
@@ -249,10 +252,8 @@ impl HelloTriangleApplication {
     }
 
     fn create_surface(&mut self) {
-        let instance = self.instance.as_ref().unwrap();
-
         let /*mut*/ events_loop = winit::EventsLoop::new();
-        self.surface = WindowBuilder::new().build_vk_surface(&events_loop, instance.clone())
+        self.surface = WindowBuilder::new().build_vk_surface(&events_loop, self.instance().clone())
             .expect("failed to create window surface!")
             .into();
     }
@@ -346,8 +347,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_render_pass(&mut self) {
-        let device = self.device.as_ref().unwrap();
-        self.render_pass = Some(Arc::new(single_pass_renderpass!(device.clone(),
+        self.render_pass = Some(Arc::new(single_pass_renderpass!(self.device().clone(),
             attachments: {
                 color: {
                     load: Clear,
@@ -403,6 +403,26 @@ impl HelloTriangleApplication {
         ).collect::<Vec<_>>();
         println!("framebuffers created")
     }
+
+    // TODO!!: remove because AutoCommandBufferBuilder uses it automatically?
+    fn create_command_pool(&mut self) {
+        let device = self.device().clone();
+        self.command_pool = Some(Device::standard_command_pool(&device,
+            self.graphics_queue.as_ref().unwrap().family()));
+        println!("Command pool fetched")
+    }
+
+    fn instance(&self) -> &Arc<Instance> {
+        self.instance.as_ref().unwrap()
+    }
+
+    fn device(&self) -> &Arc<Device> {
+        self.device.as_ref().unwrap()
+    }
+
+    // fn physical_device(&self) -> PhysicalDevice {
+    //     PhysicalDevice::from_index(self.instance(), self.physical_device_index).unwrap()
+    // }
 
     #[allow(unused)]
     fn read_file(filename: &str) -> Vec<u8> {
