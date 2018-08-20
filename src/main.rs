@@ -45,6 +45,8 @@ use vulkano::pipeline::{
 use vulkano::framebuffer::{
     Subpass,
     RenderPassAbstract,
+    Framebuffer,
+    FramebufferAbstract,
 };
 
 use winit::WindowBuilder;
@@ -105,6 +107,7 @@ struct HelloTriangleApplication {
 
     render_pass: Option<Arc<RenderPassAbstract>>,
     graphics_pipeline: Option<Arc<GraphicsPipelineAbstract>>,
+    swap_chain_framebuffers: Vec<Arc<FramebufferAbstract>>,
 }
 impl HelloTriangleApplication {
     pub fn new() -> Self {
@@ -135,6 +138,7 @@ impl HelloTriangleApplication {
         // Vulkano and can be accessed via the SwapchainImages created above
         self.create_render_pass();
         self.create_graphics_pipeline();
+        self.create_framebuffers();
     }
 
     fn create_instance(&mut self) {
@@ -386,6 +390,18 @@ impl HelloTriangleApplication {
             .build(device.clone())
             .unwrap()));
         println!("GraphicsPipeline created!");
+    }
+
+    fn create_framebuffers(&mut self) {
+        self.swap_chain_framebuffers = self.swap_chain_images.as_ref().unwrap().iter()
+            .map(|image| {
+                let fba: Arc<FramebufferAbstract> = Arc::new(Framebuffer::start(self.render_pass.as_ref().unwrap().clone())
+                    .add(image.clone()).unwrap()
+                    .build().unwrap());
+                fba
+            }
+        ).collect::<Vec<_>>();
+        println!("framebuffers created")
     }
 
     #[allow(unused)]
