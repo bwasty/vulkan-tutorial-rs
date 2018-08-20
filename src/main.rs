@@ -4,6 +4,8 @@ extern crate vulkano_win;
 
 use std::sync::Arc;
 use std::collections::HashSet;
+use std::fs::File;
+use std::io::Read;
 
 use vulkano::instance::{
     Instance,
@@ -28,6 +30,8 @@ use vulkano::format::{Format};
 use vulkano::image::ImageUsage;
 use vulkano::image::swapchain::SwapchainImage;
 use vulkano::sync::SharingMode;
+
+use vulkano::pipeline::shader::ShaderModule;
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -111,6 +115,9 @@ impl HelloTriangleApplication {
         self.pick_physical_device();
         self.create_logical_device();
         self.create_swap_chain();
+        // NOTE: image views are handled by Vulkano and can be accessed via the
+        // SwapchainImages created above
+        self.create_graphics_pipeline();
     }
 
     fn create_instance(&mut self) {
@@ -316,6 +323,29 @@ impl HelloTriangleApplication {
         self.swap_chain_image_format = Some(surface_format.0);
         self.swap_chain_extent = Some(extent);
         println!("Swapchain created!");
+    }
+
+    fn create_graphics_pipeline(&self) {
+        let vert_shader_code = Self::read_file("src/shaders/vert.spv");
+        let frag_shader_code = Self::read_file("src/shaders/frag.spv");
+
+        let vert_shader_module = self.create_shader_module(&vert_shader_code);
+        let frag_shader_module = self.create_shader_module(&frag_shader_code);
+        println!("created shader modules");
+    }
+
+    fn read_file(filename: &str) -> Vec<u8> {
+        let mut f = File::open(filename)
+            .expect("failed to open file!");
+        let mut buffer = vec![];
+        f.read_to_end(&mut buffer).unwrap();
+        buffer
+    }
+
+    fn create_shader_module(&self, code: &[u8]) -> Arc<ShaderModule> {
+        unsafe {
+            ShaderModule::new(self.device.as_ref().unwrap().clone(), &code)
+        }.expect("failed to create shader module!")
     }
 
     fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
