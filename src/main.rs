@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
@@ -29,11 +30,22 @@ use vulkano::swapchain::{
     CompositeAlpha,
 };
 use vulkano::format::{Format};
-use vulkano::image::ImageUsage;
-use vulkano::image::swapchain::SwapchainImage;
+use vulkano::image::{
+    ImageUsage,
+    swapchain::SwapchainImage
+};
 use vulkano::sync::SharingMode;
 
-use vulkano::pipeline::shader::ShaderModule;
+use vulkano::pipeline::{
+    shader::ShaderModule,
+    GraphicsPipeline,
+    GraphicsPipelineAbstract,
+    vertex::BufferlessDefinition,
+};
+use vulkano::framebuffer::{
+    Subpass,
+    RenderPassAbstract,
+};
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -90,8 +102,10 @@ struct HelloTriangleApplication {
     swap_chain_images: Option<Vec<Arc<SwapchainImage<winit::Window>>>>,
     swap_chain_image_format: Option<Format>,
     swap_chain_extent: Option<[u32; 2]>,
+
+    render_pass: Option<Arc<RenderPassAbstract>>,
+    graphics_pipeline: Option<Arc<GraphicsPipelineAbstract>>,
 }
-#[allow(dead_code)] // TODO: TMP
 impl HelloTriangleApplication {
     pub fn new() -> Self {
         Default::default()
@@ -117,8 +131,9 @@ impl HelloTriangleApplication {
         self.pick_physical_device();
         self.create_logical_device();
         self.create_swap_chain();
-        // NOTE: image views are handled by Vulkano and can be accessed via the
-        // SwapchainImages created above
+        // NOTE: no `create_image_views`  becayse image views are handled by
+        // Vulkano and can be accessed via the SwapchainImages created above
+        self.create_render_pass();
         self.create_graphics_pipeline();
     }
 
@@ -324,10 +339,27 @@ impl HelloTriangleApplication {
         self.swap_chain_images = Some(images);
         self.swap_chain_image_format = Some(surface_format.0);
         self.swap_chain_extent = Some(extent);
-        println!("Swapchain created!");
     }
 
-    fn create_graphics_pipeline(&self) {
+    fn create_render_pass(&mut self) {
+        let device = self.device.as_ref().unwrap();
+        self.render_pass = Some(Arc::new(single_pass_renderpass!(device.clone(),
+            attachments: {
+                color: {
+                    load: Clear,
+                    store: Store,
+                    format: self.swap_chain.as_ref().unwrap().format(),
+                    samples: 1,
+                }
+            },
+            pass: {
+                color: [color],
+                depth_stencil: {}
+            }
+        ).unwrap()));
+    }
+
+    fn create_graphics_pipeline(&mut self) {
         // NOTE: the standard vulkano way is to load shaders as GLSL at
         // compile-time via macros from the vulkano_shader_derive crate.
         // Loading SPIR-V at runtime like in the C++ version is partially
@@ -341,11 +373,22 @@ impl HelloTriangleApplication {
         let device = self.device.as_ref().unwrap();
         let vert_shader_module = vertex_shader::Shader::load(device.clone())
             .expect("failed to create shader module!");
-        let frag_shader_module = vertex_shader::Shader::load(device.clone())
+        let frag_shader_module = fragment_shader::Shader::load(device.clone())
             .expect("failed to create shader module!");
-        println!("created shader modules");
+
+        self.graphics_pipeline = Some(Arc::new(GraphicsPipeline::start()
+            .vertex_input(BufferlessDefinition {})
+            .vertex_shader(vert_shader_module.main_entry_point(), ())
+            .triangle_list()
+            .viewports_dynamic_scissors_irrelevant(1)
+            .fragment_shader(frag_shader_module.main_entry_point(), ())
+            .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
+            .build(device.clone())
+            .unwrap()));
+        println!("GraphicsPipeline created!");
     }
 
+    #[allow(unused)]
     fn read_file(filename: &str) -> Vec<u8> {
         let mut f = File::open(filename)
             .expect("failed to open file!");
@@ -354,6 +397,7 @@ impl HelloTriangleApplication {
         buffer
     }
 
+    #[allow(unused)]
     fn create_shader_module(&self, code: &[u8]) -> Arc<ShaderModule> {
         unsafe {
             ShaderModule::new(self.device.as_ref().unwrap().clone(), &code)
