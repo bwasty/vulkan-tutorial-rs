@@ -1,4 +1,6 @@
 extern crate vulkano;
+#[macro_use]
+extern crate vulkano_shader_derive;
 extern crate winit;
 extern crate vulkano_win;
 
@@ -326,11 +328,21 @@ impl HelloTriangleApplication {
     }
 
     fn create_graphics_pipeline(&self) {
-        let vert_shader_code = Self::read_file("src/shaders/vert.spv");
-        let frag_shader_code = Self::read_file("src/shaders/frag.spv");
+        // NOTE: the standard vulkano way is to load shaders as GLSL at
+        // compile-time via macros from the vulkano_shader_derive crate.
+        // Loading SPIR-V at runtime like in the C++ version is partially
+        // implemented, but currently unused.
 
-        let vert_shader_module = self.create_shader_module(&vert_shader_code);
-        let frag_shader_module = self.create_shader_module(&frag_shader_code);
+        // let vert_shader_code = Self::read_file("src/shaders/vert.spv");
+        // let frag_shader_code = Self::read_file("src/shaders/frag.spv");
+        // let vert_shader_module = self.create_shader_module(&vert_shader_code);
+        // let frag_shader_module = self.create_shader_module(&frag_shader_code);
+
+        let device = self.device.as_ref().unwrap();
+        let vert_shader_module = vertex_shader::Shader::load(device.clone())
+            .expect("failed to create shader module!");
+        let frag_shader_module = vertex_shader::Shader::load(device.clone())
+            .expect("failed to create shader module!");
         println!("created shader modules");
     }
 
@@ -409,6 +421,23 @@ impl HelloTriangleApplication {
         // -> check with validation layers for issues with order...
     }
 }
+
+#[allow(unused)]
+mod vertex_shader {
+    #[derive(VulkanoShader)]
+    #[ty = "vertex"]
+    #[path = "src/shaders/shader.vert"]
+    struct Dummy;
+}
+
+#[allow(unused)]
+mod fragment_shader {
+    #[derive(VulkanoShader)]
+    #[ty = "fragment"]
+    #[path = "src/shaders/shader.frag"]
+    struct Dummy;
+}
+
 
 fn main() {
     let mut app = HelloTriangleApplication::new();
