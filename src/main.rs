@@ -76,10 +76,9 @@ fn device_extensions() -> DeviceExtensions {
     }
 }
 
-// MoltenVK doesn't have any layers by default
-#[cfg(all(debug_assertions, not(target_os = "macos")))]
+#[cfg(all(debug_assertions))]
 const ENABLE_VALIDATION_LAYERS: bool = true;
-#[cfg(any(not(debug_assertions), target_os = "macos"))]
+#[cfg(not(debug_assertions))]
 const ENABLE_VALIDATION_LAYERS: bool = false;
 
 struct QueueFamilyIndices {
@@ -171,7 +170,7 @@ impl HelloTriangleApplication {
 
     fn create_instance(&mut self) {
         if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
-            panic!("validation layers requested, but not available!")
+            println!("Validation layers requested, but not available!")
         }
 
         let extensions = InstanceExtensions::supported_by_core()
@@ -188,7 +187,7 @@ impl HelloTriangleApplication {
         let extensions = Self::get_required_extensions();
 
         let instance =
-            if ENABLE_VALIDATION_LAYERS {
+            if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
                 Instance::new(Some(&app_info), &extensions, VALIDATION_LAYERS.iter().map(|s| *s))
                     .expect("failed to create Vulkan instance")
             } else {
@@ -443,10 +442,10 @@ impl HelloTriangleApplication {
         let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
         self.command_buffers = self.swap_chain_framebuffers.iter()
             .map(|framebuffer| {
-                let vertices = BufferlessVertices { vertices: 3, instances: 0 };
+                let vertices = BufferlessVertices { vertices: 3, instances: 1 };
                 Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
                     .unwrap()
-                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 1.0, 0.0, 1.0].into()])
+                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                     .unwrap()
                     .draw(graphics_pipeline.clone(), &dynamic_state,
                         vertices, (), ())
@@ -497,7 +496,7 @@ impl HelloTriangleApplication {
 
     fn check_validation_layer_support() -> bool {
         // println!("Available layers:");
-        // for layer in instance::layers_list().unwrap() {
+        // for layer in layers_list().unwrap() {
         //     println!("{}", layer.name());
         // }
         for layer_name in VALIDATION_LAYERS.iter() {
