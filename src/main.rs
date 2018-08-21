@@ -35,7 +35,10 @@ use vulkano::image::{
     swapchain::SwapchainImage
 };
 use vulkano::sync::SharingMode;
-
+use vulkano::command_buffer::{
+    AutoCommandBuffer,
+    AutoCommandBufferBuilder
+};
 use vulkano::pipeline::{
     shader::ShaderModule,
     GraphicsPipeline,
@@ -48,7 +51,6 @@ use vulkano::framebuffer::{
     Framebuffer,
     FramebufferAbstract,
 };
-use vulkano::command_buffer::pool::StandardCommandPool;
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -106,11 +108,12 @@ struct HelloTriangleApplication {
     swap_chain_image_format: Option<Format>,
     swap_chain_extent: Option<[u32; 2]>,
 
-    render_pass: Option<Arc<RenderPassAbstract>>,
+    render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
     graphics_pipeline: Option<Arc<GraphicsPipelineAbstract>>,
-    swap_chain_framebuffers: Vec<Arc<FramebufferAbstract>>,
+    swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
-    command_pool: Option<Arc<StandardCommandPool>>,
+    // command_pool: Option<Arc<StandardCommandPool>>,
+    command_buffers: Vec<AutoCommandBuffer>,
 }
 impl HelloTriangleApplication {
     pub fn new() -> Self {
@@ -142,7 +145,11 @@ impl HelloTriangleApplication {
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
-        self.create_command_pool();
+        // NOTE: Vulkano has a `StandardCommandPool` that is used automatically,
+        // but it is possible to use custom pools. See the vulkano::command_buffer
+        // module docs for details
+        // self.create_command_pool();
+        self.create_command_buffers();
     }
 
     fn create_instance(&mut self) {
@@ -395,7 +402,7 @@ impl HelloTriangleApplication {
     fn create_framebuffers(&mut self) {
         self.swap_chain_framebuffers = self.swap_chain_images.as_ref().unwrap().iter()
             .map(|image| {
-                let fba: Arc<FramebufferAbstract> = Arc::new(Framebuffer::start(self.render_pass.as_ref().unwrap().clone())
+                let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(self.render_pass.as_ref().unwrap().clone())
                     .add(image.clone()).unwrap()
                     .build().unwrap());
                 fba
@@ -405,11 +412,26 @@ impl HelloTriangleApplication {
     }
 
     // TODO!!: remove because AutoCommandBufferBuilder uses it automatically?
-    fn create_command_pool(&mut self) {
-        let device = self.device().clone();
-        self.command_pool = Some(Device::standard_command_pool(&device,
-            self.graphics_queue.as_ref().unwrap().family()));
-        println!("Command pool fetched")
+    // fn create_command_pool(&mut self) {
+    //     let device = self.device().clone();
+    //     self.command_pool = Some(Device::standard_command_pool(&device,
+    //         self.graphics_queue.as_ref().unwrap().family()));
+    // }
+
+    fn create_command_buffers(&mut self) {
+        let queue_family = self.graphics_queue.as_ref().unwrap().family();
+        self.command_buffers = self.swap_chain_framebuffers.iter()
+            .map(|framebuffer| {
+                AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
+                    .unwrap()
+                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
+                    .unwrap()
+                    // TODO!!!: continue here
+                    .build()
+                    .unwrap()
+            })
+            .collect();
+        println!("command buffers built.")
     }
 
     fn instance(&self) -> &Arc<Instance> {
