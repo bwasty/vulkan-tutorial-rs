@@ -28,6 +28,7 @@ use vulkano::swapchain::{
     SupportedPresentModes, PresentMode,
     Swapchain,
     CompositeAlpha,
+    acquire_next_image,
 };
 use vulkano::format::{Format};
 use vulkano::image::{
@@ -43,17 +44,18 @@ use vulkano::command_buffer::{
 use vulkano::pipeline::{
     shader::ShaderModule,
     GraphicsPipeline,
-    GraphicsPipelineAbstract,
     vertex::BufferlessDefinition,
     vertex::BufferlessVertices,
     viewport::Viewport,
 };
+use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::framebuffer::{
     Subpass,
     RenderPassAbstract,
     Framebuffer,
     FramebufferAbstract,
 };
+use vulkano::sync::GpuFuture;
 
 use winit::WindowBuilder;
 use winit::dpi::LogicalSize;
@@ -94,10 +96,13 @@ impl QueueFamilyIndices {
     }
 }
 
+type ConcreteGraphicsPipeline = Arc<GraphicsPipeline<BufferlessDefinition, Box<PipelineLayoutAbstract + Send + Sync + 'static>, Arc<RenderPassAbstract + Send + Sync + 'static>>>;
+
 #[derive(Default)]
 struct HelloTriangleApplication {
     instance: Option<Arc<Instance>>,
     debug_callback: Option<DebugCallback>,
+    events_loop: Option<winit::EventsLoop>,
     surface: Option<Arc<Surface<winit::Window>>>,
 
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
@@ -112,10 +117,19 @@ struct HelloTriangleApplication {
     swap_chain_extent: Option<[u32; 2]>,
 
     render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
-    graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
+
+    // NOTE: We need to the full type of
+    // self.graphics_pipeline, because `BufferlessVertices` only
+    // works when the concrete type of the graphics pipeline is visible
+    // to the command buffer.
+    // TODO: check if can be simplified later in tutorial
+    // graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
+    graphics_pipeline: Option<ConcreteGraphicsPipeline>,
+
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
     // command_pool: Option<Arc<StandardCommandPool>>,
+    #[allow(dead_code)]
     command_buffers: Vec<AutoCommandBuffer>,
 }
 impl HelloTriangleApplication {
@@ -143,17 +157,18 @@ impl HelloTriangleApplication {
         self.pick_physical_device();
         self.create_logical_device();
         self.create_swap_chain();
-        // NOTE: no `create_image_views`  becayse image views are handled by
+        // NOTE: no `create_image_views`  because image views are handled by
         // Vulkano and can be accessed via the SwapchainImages created above
         self.create_render_pass();
-        // See create_command_buffers
-        // self.create_graphics_pipeline();
+        self.create_graphics_pipeline();
         self.create_framebuffers();
-        // NOTE: Vulkano has a `StandardCommandPool` that is used automatically,
-        // but it is possible to use custom pools. See the vulkano::command_buffer
-        // module docs for details
-        // self.create_command_pool();
-        self.create_command_buffers();
+
+        // NOTE: No self.create_command_pool() - Vulkano has a `StandardCommandPool`
+        // that is used automatically, but it is possible to use custom pools.
+        // See the vulkano::command_buffer  module docs for details
+
+        // TODO!: replaced by create_command_buffer() in draw_frame()
+        // self.create_command_buffers();
     }
 
     fn create_instance(&mut self) {
@@ -263,8 +278,8 @@ impl HelloTriangleApplication {
     }
 
     fn create_surface(&mut self) {
-        let /*mut*/ events_loop = winit::EventsLoop::new();
-        self.surface = WindowBuilder::new().build_vk_surface(&events_loop, self.instance().clone())
+        self.events_loop = Some(winit::EventsLoop::new());
+        self.surface = WindowBuilder::new().build_vk_surface(&self.events_loop.as_ref().unwrap(), self.instance().clone())
             .expect("failed to create window surface!")
             .into();
     }
@@ -401,7 +416,6 @@ impl HelloTriangleApplication {
             .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
             .build(device.clone())
             .unwrap()));
-        println!("GraphicsPipeline created!");
     }
 
     fn create_framebuffers(&mut self) {
@@ -413,16 +427,9 @@ impl HelloTriangleApplication {
                 fba
             }
         ).collect::<Vec<_>>();
-        println!("framebuffers created")
     }
 
-    // TODO!!: remove because AutoCommandBufferBuilder uses it automatically?
-    // fn create_command_pool(&mut self) {
-    //     let device = self.device().clone();
-    //     self.command_pool = Some(Device::standard_command_pool(&device,
-    //         self.graphics_queue.as_ref().unwrap().family()));
-    // }
-
+    #[allow(dead_code)]
     fn create_command_buffers(&mut self) {
         let swap_chain_extent = self.swap_chain_extent.unwrap();
         let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
@@ -435,36 +442,14 @@ impl HelloTriangleApplication {
             .. DynamicState::none()
         };
 
-        // HACK:
-        // We need to define the graphics_pipeline here instead of using
-        // self.graphics_pipeline, because `BufferlessVertices` below only
-        // works when the concrete type of the graphics pipeline is visible
-        // to the command buffer.
-        // Hopefully this can be removed when getting to the `Vertex Buffers` chapter
-        let device = self.device.as_ref().unwrap();
-        let vert_shader_module = vertex_shader::Shader::load(device.clone())
-            .expect("failed to create shader module!");
-        let frag_shader_module = fragment_shader::Shader::load(device.clone())
-            .expect("failed to create shader module!");
-        let graphics_pipeline = Arc::new(GraphicsPipeline::start()
-            .vertex_input(BufferlessDefinition {})
-            .vertex_shader(vert_shader_module.main_entry_point(), ())
-            .triangle_list()
-            .viewports_dynamic_scissors_irrelevant(1)
-            .fragment_shader(frag_shader_module.main_entry_point(), ())
-            .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
-            .build(device.clone())
-            .unwrap());
-        ////
-
         let queue_family = self.graphics_queue.as_ref().unwrap().family();
-        // let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
+        let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
         self.command_buffers = self.swap_chain_framebuffers.iter()
             .map(|framebuffer| {
                 let vertices = BufferlessVertices { vertices: 3, instances: 0 };
                 AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
                     .unwrap()
-                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
+                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 1.0, 0.0, 1.0].into()])
                     .unwrap()
                     .draw(graphics_pipeline.clone(), &dynamic_state,
                         vertices, (), ())
@@ -475,20 +460,45 @@ impl HelloTriangleApplication {
                     .unwrap()
             })
             .collect();
-        println!("command buffers built.")
     }
 
+    fn create_command_buffer(&self, image_index: usize) -> AutoCommandBuffer {
+        let swap_chain_extent = self.swap_chain_extent.unwrap();
+        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
+        let dynamic_state = DynamicState {
+            viewports: Some(vec![Viewport {
+                origin: [0.0, 0.0],
+                dimensions,
+                depth_range: 0.0 .. 1.0,
+            }]),
+            .. DynamicState::none()
+        };
+
+        let queue_family = self.graphics_queue.as_ref().unwrap().family();
+        let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
+        let framebuffer = &self.swap_chain_framebuffers[image_index];
+        let vertices = BufferlessVertices { vertices: 3, instances: 0 };
+        AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
+            .unwrap()
+            .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
+            .unwrap()
+            .draw(graphics_pipeline.clone(), &dynamic_state, vertices, (), ())
+            .unwrap()
+            .end_render_pass()
+            .unwrap()
+            .build()
+            .unwrap()
+    }
+
+    #[inline]
     fn instance(&self) -> &Arc<Instance> {
         self.instance.as_ref().unwrap()
     }
 
+    #[inline]
     fn device(&self) -> &Arc<Device> {
         self.device.as_ref().unwrap()
     }
-
-    // fn physical_device(&self) -> PhysicalDevice {
-    //     PhysicalDevice::from_index(self.instance(), self.physical_device_index).unwrap()
-    // }
 
     #[allow(unused)]
     fn read_file(filename: &str) -> Vec<u8> {
@@ -558,8 +568,48 @@ impl HelloTriangleApplication {
         extensions
     }
 
-    fn main_loop(&self) {
+    fn main_loop(&mut self) {
+        loop {
+            self.draw_frame();
 
+            let mut done = false;
+            self.events_loop.as_mut().unwrap().poll_events(|ev| {
+                match ev {
+                    winit::Event::WindowEvent { event: winit::WindowEvent::CloseRequested, .. } => done = true,
+                    _ => ()
+                }
+            });
+            if done {
+                // TODO!: vkDeviceWaitIdle(device);?
+                return;
+            }
+        }
+    }
+
+    fn draw_frame(&mut self) {
+        let swap_chain = self.swap_chain().clone();
+        let (image_index, acquire_future) = acquire_next_image(swap_chain.clone(), None).unwrap();
+        let queue = self.graphics_queue().clone();
+        // TODO!?: command buffers are consumed by execution, so we can't really use the pre-build ones...
+        // let commmand_buffer = self.command_buffers.pop().unwrap();
+        let command_buffer = self.create_command_buffer(image_index);
+
+        // TODO!!: sync...last frame?
+        let _future = acquire_future
+            .then_execute(queue.clone(), command_buffer)
+            .unwrap()
+            .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
+            .then_signal_fence_and_flush();
+    }
+
+    #[inline]
+    fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
+        self.swap_chain.as_ref().unwrap()
+    }
+
+    #[inline]
+    fn graphics_queue(&self) -> &Arc<Queue> {
+        self.graphics_queue.as_ref().unwrap()
     }
 
     fn cleanup(&self) {
