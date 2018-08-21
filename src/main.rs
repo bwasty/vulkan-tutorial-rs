@@ -129,8 +129,7 @@ struct HelloTriangleApplication {
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
     // command_pool: Option<Arc<StandardCommandPool>>,
-    #[allow(dead_code)]
-    command_buffers: Vec<AutoCommandBuffer>,
+    command_buffers: Vec<Arc<AutoCommandBuffer>>,
 }
 impl HelloTriangleApplication {
     pub fn new() -> Self {
@@ -167,8 +166,7 @@ impl HelloTriangleApplication {
         // that is used automatically, but it is possible to use custom pools.
         // See the vulkano::command_buffer  module docs for details
 
-        // TODO!: replaced by create_command_buffer() in draw_frame()
-        // self.create_command_buffers();
+        self.create_command_buffers();
     }
 
     fn create_instance(&mut self) {
@@ -429,7 +427,6 @@ impl HelloTriangleApplication {
         ).collect::<Vec<_>>();
     }
 
-    #[allow(dead_code)]
     fn create_command_buffers(&mut self) {
         let swap_chain_extent = self.swap_chain_extent.unwrap();
         let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
@@ -447,7 +444,7 @@ impl HelloTriangleApplication {
         self.command_buffers = self.swap_chain_framebuffers.iter()
             .map(|framebuffer| {
                 let vertices = BufferlessVertices { vertices: 3, instances: 0 };
-                AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
+                Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
                     .unwrap()
                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 1.0, 0.0, 1.0].into()])
                     .unwrap()
@@ -457,47 +454,9 @@ impl HelloTriangleApplication {
                     .end_render_pass()
                     .unwrap()
                     .build()
-                    .unwrap()
+                    .unwrap())
             })
             .collect();
-    }
-
-    fn create_command_buffer(&self, image_index: usize) -> AutoCommandBuffer {
-        let swap_chain_extent = self.swap_chain_extent.unwrap();
-        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
-        let dynamic_state = DynamicState {
-            viewports: Some(vec![Viewport {
-                origin: [0.0, 0.0],
-                dimensions,
-                depth_range: 0.0 .. 1.0,
-            }]),
-            .. DynamicState::none()
-        };
-
-        let queue_family = self.graphics_queue.as_ref().unwrap().family();
-        let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
-        let framebuffer = &self.swap_chain_framebuffers[image_index];
-        let vertices = BufferlessVertices { vertices: 3, instances: 0 };
-        AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
-            .unwrap()
-            .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
-            .unwrap()
-            .draw(graphics_pipeline.clone(), &dynamic_state, vertices, (), ())
-            .unwrap()
-            .end_render_pass()
-            .unwrap()
-            .build()
-            .unwrap()
-    }
-
-    #[inline]
-    fn instance(&self) -> &Arc<Instance> {
-        self.instance.as_ref().unwrap()
-    }
-
-    #[inline]
-    fn device(&self) -> &Arc<Device> {
-        self.device.as_ref().unwrap()
     }
 
     #[allow(unused)]
@@ -527,7 +486,6 @@ impl HelloTriangleApplication {
                 // -> assuming it does if it supports graphics
                 indices.present_family = i as i32;
             }
-
 
             if indices.is_complete() {
                 break;
@@ -590,31 +548,38 @@ impl HelloTriangleApplication {
         let swap_chain = self.swap_chain().clone();
         let (image_index, acquire_future) = acquire_next_image(swap_chain.clone(), None).unwrap();
         let queue = self.graphics_queue().clone();
-        // TODO!?: command buffers are consumed by execution, so we can't really use the pre-build ones...
-        // let commmand_buffer = self.command_buffers.pop().unwrap();
-        let command_buffer = self.create_command_buffer(image_index);
+        let command_buffer = self.command_buffers[image_index].clone();
 
-        // TODO!!: sync...last frame?
-        let _future = acquire_future
+        let future = acquire_future
             .then_execute(queue.clone(), command_buffer)
             .unwrap()
             .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
-            .then_signal_fence_and_flush();
-    }
+            .then_signal_fence_and_flush()
+            .unwrap();
 
-    #[inline]
-    fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
-        self.swap_chain.as_ref().unwrap()
-    }
-
-    #[inline]
-    fn graphics_queue(&self) -> &Arc<Queue> {
-        self.graphics_queue.as_ref().unwrap()
+        // TODO!!: better syncing...
+        future.wait(None).unwrap();
     }
 
     fn cleanup(&self) {
         // TODO!: trust automatic drop and remove or use std::mem::drop here? (instance, device etc.)
         // -> check with validation layers for issues with order...
+    }
+
+    fn instance(&self) -> &Arc<Instance> {
+        self.instance.as_ref().unwrap()
+    }
+
+    fn device(&self) -> &Arc<Device> {
+        self.device.as_ref().unwrap()
+    }
+
+    fn graphics_queue(&self) -> &Arc<Queue> {
+        self.graphics_queue.as_ref().unwrap()
+    }
+
+    fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
+        self.swap_chain.as_ref().unwrap()
     }
 }
 
@@ -633,7 +598,6 @@ mod fragment_shader {
     #[path = "src/shaders/shader.frag"]
     struct Dummy;
 }
-
 
 fn main() {
     let mut app = HelloTriangleApplication::new();
