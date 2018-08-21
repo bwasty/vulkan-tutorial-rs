@@ -37,13 +37,16 @@ use vulkano::image::{
 use vulkano::sync::SharingMode;
 use vulkano::command_buffer::{
     AutoCommandBuffer,
-    AutoCommandBufferBuilder
+    AutoCommandBufferBuilder,
+    DynamicState,
 };
 use vulkano::pipeline::{
     shader::ShaderModule,
     GraphicsPipeline,
     GraphicsPipelineAbstract,
     vertex::BufferlessDefinition,
+    vertex::BufferlessVertices,
+    viewport::Viewport,
 };
 use vulkano::framebuffer::{
     Subpass,
@@ -109,7 +112,7 @@ struct HelloTriangleApplication {
     swap_chain_extent: Option<[u32; 2]>,
 
     render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
-    graphics_pipeline: Option<Arc<GraphicsPipelineAbstract>>,
+    graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
     // command_pool: Option<Arc<StandardCommandPool>>,
@@ -143,7 +146,8 @@ impl HelloTriangleApplication {
         // NOTE: no `create_image_views`  becayse image views are handled by
         // Vulkano and can be accessed via the SwapchainImages created above
         self.create_render_pass();
-        self.create_graphics_pipeline();
+        // See create_command_buffers
+        // self.create_graphics_pipeline();
         self.create_framebuffers();
         // NOTE: Vulkano has a `StandardCommandPool` that is used automatically,
         // but it is possible to use custom pools. See the vulkano::command_buffer
@@ -370,6 +374,7 @@ impl HelloTriangleApplication {
         ).unwrap()));
     }
 
+    #[allow(unused)]
     fn create_graphics_pipeline(&mut self) {
         // NOTE: the standard vulkano way is to load shaders as GLSL at
         // compile-time via macros from the vulkano_shader_derive crate.
@@ -419,14 +424,53 @@ impl HelloTriangleApplication {
     // }
 
     fn create_command_buffers(&mut self) {
+        let swap_chain_extent = self.swap_chain_extent.unwrap();
+        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
+        let dynamic_state = DynamicState {
+            viewports: Some(vec![Viewport {
+                origin: [0.0, 0.0],
+                dimensions,
+                depth_range: 0.0 .. 1.0,
+            }]),
+            .. DynamicState::none()
+        };
+
+        // HACK:
+        // We need to define the graphics_pipeline here instead of using
+        // self.graphics_pipeline, because `BufferlessVertices` below only
+        // works when the concrete type of the graphics pipeline is visible
+        // to the command buffer.
+        // Hopefully this can be removed when getting to the `Vertex Buffers` chapter
+        let device = self.device.as_ref().unwrap();
+        let vert_shader_module = vertex_shader::Shader::load(device.clone())
+            .expect("failed to create shader module!");
+        let frag_shader_module = fragment_shader::Shader::load(device.clone())
+            .expect("failed to create shader module!");
+        let graphics_pipeline = Arc::new(GraphicsPipeline::start()
+            .vertex_input(BufferlessDefinition {})
+            .vertex_shader(vert_shader_module.main_entry_point(), ())
+            .triangle_list()
+            .viewports_dynamic_scissors_irrelevant(1)
+            .fragment_shader(frag_shader_module.main_entry_point(), ())
+            .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
+            .build(device.clone())
+            .unwrap());
+        ////
+
         let queue_family = self.graphics_queue.as_ref().unwrap().family();
+        // let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
         self.command_buffers = self.swap_chain_framebuffers.iter()
             .map(|framebuffer| {
+                let vertices = BufferlessVertices { vertices: 3, instances: 0 };
                 AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
                     .unwrap()
                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                     .unwrap()
-                    // TODO!!!: continue here
+                    .draw(graphics_pipeline.clone(), &dynamic_state,
+                        vertices, (), ())
+                    .unwrap()
+                    .end_render_pass()
+                    .unwrap()
                     .build()
                     .unwrap()
             })
