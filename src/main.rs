@@ -222,7 +222,7 @@ impl HelloTriangleApplication {
     }
 
     fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
-        let indices = Self::find_queue_families(device);
+        let indices = self.find_queue_families(device);
         let extensions_supported = Self::check_device_extension_support(device);
 
         let swap_chain_adequate = if extensions_supported {
@@ -246,7 +246,7 @@ impl HelloTriangleApplication {
         let instance = self.instance.as_ref().unwrap();
         let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
 
-        let indices = Self::find_queue_families(&physical_device);
+        let indices = self.find_queue_families(&physical_device);
 
         let families = [indices.graphics_family, indices.present_family];
         use std::iter::FromIterator;
@@ -339,7 +339,7 @@ impl HelloTriangleApplication {
             .. ImageUsage::none()
         };
 
-        let indices = Self::find_queue_families(&physical_device);
+        let indices = self.find_queue_families(&physical_device);
 
         let sharing: SharingMode = if indices.graphics_family != indices.present_family {
             vec![self.graphics_queue.as_ref().unwrap(), self.present_queue.as_ref().unwrap()].as_slice().into()
@@ -474,15 +474,15 @@ impl HelloTriangleApplication {
         }.expect("failed to create shader module!")
     }
 
-    fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
+    fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
         let mut indices = QueueFamilyIndices::new();
         // TODO: replace index with id to simplify?
         for (i, queue_family) in device.queue_families().enumerate() {
             if queue_family.supports_graphics() {
                 indices.graphics_family = i as i32;
+            }
 
-                // TODO: Vulkano doesn't seem to support querying 'present support' (vkGetPhysicalDeviceSurfaceSupportKHR)
-                // -> assuming it does if it supports graphics
+            if self.surface.as_ref().unwrap().is_supported(queue_family).unwrap() {
                 indices.present_family = i as i32;
             }
 
