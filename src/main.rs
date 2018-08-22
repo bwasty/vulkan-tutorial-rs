@@ -35,6 +35,7 @@ use vulkano::image::{
     ImageUsage,
     swapchain::SwapchainImage
 };
+use vulkano::sync;
 use vulkano::sync::SharingMode;
 use vulkano::command_buffer::{
     AutoCommandBuffer,
@@ -129,6 +130,10 @@ struct HelloTriangleApplication {
 
     // command_pool: Option<Arc<StandardCommandPool>>,
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
+
+    previous_frame_end: Option<Box<GpuFuture>>,
+
+    frame_count: u32,
 }
 impl HelloTriangleApplication {
     pub fn new() -> Self {
@@ -166,6 +171,7 @@ impl HelloTriangleApplication {
         // See the vulkano::command_buffer  module docs for details
 
         self.create_command_buffers();
+        self.create_sync_objects();
     }
 
     fn create_instance(&mut self) {
@@ -458,6 +464,11 @@ impl HelloTriangleApplication {
             .collect();
     }
 
+    fn create_sync_objects(&mut self) {
+        self.previous_frame_end =
+            Some(Box::new(sync::now(self.device().clone())) as Box<GpuFuture>);
+    }
+
     #[allow(unused)]
     fn read_file(filename: &str) -> Vec<u8> {
         let mut f = File::open(filename)
@@ -549,15 +560,25 @@ impl HelloTriangleApplication {
         let queue = self.graphics_queue().clone();
         let command_buffer = self.command_buffers[image_index].clone();
 
-        let future = acquire_future
+        self.previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+        let future = self.previous_frame_end.take().unwrap()
+            .join(acquire_future)
             .then_execute(queue.clone(), command_buffer)
             .unwrap()
             .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
             .then_signal_fence_and_flush()
             .unwrap();
 
-        // TODO!!: better syncing...
-        future.wait(None).unwrap();
+        self.frame_count += 1;
+        // print!(".");
+        // if (self.frame_count % 60 == 0) {
+        //     print!("{}", self.frame_count);
+        // }
+        // use std::io::{self, Write};
+        // io::stdout().flush().unwrap();
+
+        self.previous_frame_end = Some(Box::new(future) as Box<_>);
     }
 
     fn cleanup(&self) {
