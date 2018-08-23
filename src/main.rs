@@ -29,6 +29,7 @@ use vulkano::swapchain::{
     Swapchain,
     CompositeAlpha,
     acquire_next_image,
+    AcquireError,
 };
 use vulkano::format::{Format};
 use vulkano::image::{
@@ -132,6 +133,7 @@ struct HelloTriangleApplication {
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
     previous_frame_end: Option<Box<GpuFuture>>,
+    recreate_swap_chain: bool,
 
     frame_count: u32,
 }
@@ -312,15 +314,22 @@ impl HelloTriangleApplication {
         }
     }
 
-    fn choose_swap_extent(capabilities: &Capabilities) -> [u32; 2] {
+    fn choose_swap_extent(&self, capabilities: &Capabilities) -> [u32; 2] {
         if let Some(current_extent) = capabilities.current_extent {
             return current_extent
         } else {
-            let mut actual_extent = [WIDTH, HEIGHT];
-            actual_extent[0] = capabilities.min_image_extent[0]
-                .max(capabilities.max_image_extent[0].min(actual_extent[0]));
-            actual_extent[1] = capabilities.min_image_extent[1]
-                .max(capabilities.max_image_extent[1].min(actual_extent[1]));
+            let window = self.surface.as_ref().unwrap().window();
+            let logical_size = window.get_inner_size().unwrap();
+            let physcal_size = logical_size.to_physical(window.get_hidpi_factor());
+
+            let mut actual_extent = [physcal_size.width as u32, physcal_size.height as u32];
+
+            // old version for earlier tutorial chapter...
+            // let mut actual_extent = [WIDTH, HEIGHT];
+            // actual_extent[0] = capabilities.min_image_extent[0]
+            //     .max(capabilities.max_image_extent[0].min(actual_extent[0]));
+            // actual_extent[1] = capabilities.min_image_extent[1]
+            //     .max(capabilities.max_image_extent[1].min(actual_extent[1]));
             actual_extent
         }
     }
@@ -333,7 +342,7 @@ impl HelloTriangleApplication {
 
         let surface_format = Self::choose_swap_surface_format(&capabilities.supported_formats);
         let present_mode = Self::choose_swap_present_mode(capabilities.present_modes);
-        let extent = Self::choose_swap_extent(&capabilities);
+        let extent = self.choose_swap_extent(&capabilities);
 
         let mut image_count = capabilities.min_image_count + 1;
         if capabilities.max_image_count.is_some() && image_count > capabilities.max_image_count.unwrap() {
@@ -366,7 +375,7 @@ impl HelloTriangleApplication {
             CompositeAlpha::Opaque,
             present_mode,
             true, // clipped
-            None, // old_swapchain
+            self.swap_chain.as_ref(), // old_swapchain
         ).expect("failed to create swap chain!");
 
         self.swap_chain = Some(swap_chain);
@@ -555,20 +564,48 @@ impl HelloTriangleApplication {
     }
 
     fn draw_frame(&mut self) {
+        self.previous_frame_end.as_mut().unwrap().cleanup_finished();
+
+        if self.recreate_swap_chain {
+            self.recreate_swap_chain();
+            self.recreate_swap_chain = false;
+        }
+
         let swap_chain = self.swap_chain().clone();
-        let (image_index, acquire_future) = acquire_next_image(swap_chain.clone(), None).unwrap();
+        let (image_index, acquire_future) = match acquire_next_image(swap_chain.clone(), None) {
+            Ok(r) => r,
+            Err(AcquireError::OutOfDate) => {
+                self.recreate_swap_chain = true;
+                return;
+            },
+            Err(err) => panic!("{:?}", err)
+        };
+
         let queue = self.graphics_queue().clone();
         let command_buffer = self.command_buffers[image_index].clone();
-
-        self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
         let future = self.previous_frame_end.take().unwrap()
             .join(acquire_future)
             .then_execute(queue.clone(), command_buffer)
             .unwrap()
             .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
-            .then_signal_fence_and_flush()
-            .unwrap();
+            .then_signal_fence_and_flush();
+
+        match future {
+            Ok(future) => {
+                self.previous_frame_end = Some(Box::new(future) as Box<_>);
+            }
+            Err(vulkano::sync::FlushError::OutOfDate) => {
+                self.recreate_swap_chain = true;
+                self.previous_frame_end
+                    = Some(Box::new(vulkano::sync::now(self.device().clone())) as Box<_>);
+            }
+            Err(e) => {
+                println!("{:?}", e);
+                self.previous_frame_end
+                    = Some(Box::new(vulkano::sync::now(self.device().clone())) as Box<_>);
+            }
+        }
 
         self.frame_count += 1;
         // print!(".");
@@ -578,7 +615,19 @@ impl HelloTriangleApplication {
         // use std::io::{self, Write};
         // io::stdout().flush().unwrap();
 
-        self.previous_frame_end = Some(Box::new(future) as Box<_>);
+        // self.previous_frame_end = Some(Box::new(future) as Box<_>);
+    }
+
+    fn recreate_swap_chain(&mut self) {
+        unsafe { self.device().wait().unwrap(); }
+
+        // NOTE: no cleanup_swap_chain() required - old resources will be dropped automatically
+
+        self.create_swap_chain();
+        self.create_render_pass();
+        self.create_graphics_pipeline();
+        self.create_framebuffers();
+        self.create_command_buffers();
     }
 
     fn cleanup(&self) {
