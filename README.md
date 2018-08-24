@@ -142,7 +142,48 @@ const HEIGHT: u32 = 600;
 #### Instance
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Instance
 
-*TODO*
+```rust
+extern crate vulkano_win;
+```
+```rust
+use vulkano::instance::{
+    Instance,
+    InstanceExtensions,
+    ApplicationInfo,
+    Version,
+};
+```
+```rust
+struct HelloTriangleApplication {
+    instance: Option<Arc<Instance>>,
+    ...
+}
+```
+```rust
+    fn init_vulkan(&mut self) {
+        self.create_instance();
+    }
+```
+```rust
+    fn create_instance(&mut self) {
+        let supported_extensions = InstanceExtensions::supported_by_core()
+            .expect("failed to retrieve supported extensions");
+        println!("Supported extensions: {:?}", supported_extensions);
+
+        let app_info = ApplicationInfo {
+            application_name: Some("Hello Triangle".into()),
+            application_version: Some(Version { major: 1, minor: 0, patch: 0 }),
+            engine_name: Some("No Engine".into()),
+            engine_version: Some(Version { major: 1, minor: 0, patch: 0 }),
+        };
+
+        let required_extensions = vulkano_win::required_extensions();
+        self.instance = Some(Instance::new(Some(&app_info), &required_extensions, None)
+            .expect("failed to create Vulkan instance"))
+    }
+```
+
+[Complete code](src/bin/01_instance_creation.rs)
 
 #### Validation layers
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers
@@ -175,4 +216,4 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
 
 *TODO*
 
-[Rust code](src/main.rs)
+[Complete code](src/main.rs)
