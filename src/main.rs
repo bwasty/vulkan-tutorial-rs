@@ -143,17 +143,17 @@ impl HelloTriangleApplication {
     }
 
     pub fn run(&mut self) {
-        self.init_window();
+        // self.init_window();
         self.init_vulkan();
         self.main_loop();
         self.cleanup();
     }
 
-    fn init_window(&self) {
-        WindowBuilder::new()
-            .with_title("Vulkan")
-            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
-    }
+    // fn init_window(&self) {
+    //     WindowBuilder::new()
+    //         .with_title("Vulkan")
+    //         .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
+    // }
 
     fn init_vulkan(&mut self) {
         self.create_instance();
