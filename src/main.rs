@@ -515,10 +515,6 @@ impl HelloTriangleApplication {
     }
 
     fn check_validation_layer_support() -> bool {
-        // println!("Available layers:");
-        // for layer in layers_list().unwrap() {
-        //     println!("{}", layer.name());
-        // }
         for layer_name in VALIDATION_LAYERS.iter() {
             let mut layer_found = false;
             for layer_properties in layers_list().unwrap() {
