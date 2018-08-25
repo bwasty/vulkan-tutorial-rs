@@ -3,7 +3,7 @@ Rust version of https://github.com/Overv/VulkanTutorial.
 
 **Goal**: Rust port with code structure as similar as possible to the original C++, so the original tutorial can easily be followed (similar to [learn-opengl-rs](https://github.com/bwasty/learn-opengl-rs)).
 
-**Current State**: Early, got the code up to [Swap chain recreation](https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation) (the triangle renders!), but it isn't yet (fully) split up by chapter and the notes below are incomplete.
+**Current State**: The first major part, `Drawing a triangle`, is complete.
 
 ---
 * [Introduction](#introduction)

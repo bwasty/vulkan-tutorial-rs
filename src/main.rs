@@ -2,22 +2,23 @@
 extern crate vulkano;
 #[macro_use]
 extern crate vulkano_shader_derive;
-extern crate winit;
 extern crate vulkano_win;
+extern crate winit;
 
 use std::sync::Arc;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::Read;
+
+use winit::{ WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
+use vulkano_win::VkSurfaceBuild;
 
 use vulkano::instance::{
     Instance,
     InstanceExtensions,
-    layers_list,
     ApplicationInfo,
     Version,
+    layers_list,
     PhysicalDevice,
-    Features,
+    Features
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
 use vulkano::device::{Device, DeviceExtensions, Queue};
@@ -25,43 +26,34 @@ use vulkano::swapchain::{
     Surface,
     Capabilities,
     ColorSpace,
-    SupportedPresentModes, PresentMode,
+    SupportedPresentModes,
+    PresentMode,
     Swapchain,
     CompositeAlpha,
     acquire_next_image,
     AcquireError,
 };
-use vulkano::format::{Format};
-use vulkano::image::{
-    ImageUsage,
-    swapchain::SwapchainImage
-};
-use vulkano::sync;
-use vulkano::sync::SharingMode;
-use vulkano::command_buffer::{
-    AutoCommandBuffer,
-    AutoCommandBufferBuilder,
-    DynamicState,
-};
+use vulkano::format::Format;
+use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
+use vulkano::sync::{self, SharingMode, GpuFuture};
 use vulkano::pipeline::{
-    shader::ShaderModule,
     GraphicsPipeline,
     vertex::BufferlessDefinition,
     vertex::BufferlessVertices,
     viewport::Viewport,
 };
-use vulkano::descriptor::PipelineLayoutAbstract;
 use vulkano::framebuffer::{
-    Subpass,
     RenderPassAbstract,
-    Framebuffer,
+    Subpass,
     FramebufferAbstract,
+    Framebuffer,
 };
-use vulkano::sync::GpuFuture;
-
-use winit::WindowBuilder;
-use winit::dpi::LogicalSize;
-use vulkano_win::VkSurfaceBuild;
+use vulkano::descriptor::PipelineLayoutAbstract;
+use vulkano::command_buffer::{
+    AutoCommandBuffer,
+    AutoCommandBufferBuilder,
+    DynamicState,
+};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -103,7 +95,6 @@ type ConcreteGraphicsPipeline = Arc<GraphicsPipeline<BufferlessDefinition, Box<P
 struct HelloTriangleApplication {
     instance: Option<Arc<Instance>>,
     debug_callback: Option<DebugCallback>,
-    events_loop: Option<winit::EventsLoop>,
     surface: Option<Arc<Surface<winit::Window>>>,
 
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
@@ -118,7 +109,6 @@ struct HelloTriangleApplication {
     swap_chain_extent: Option<[u32; 2]>,
 
     render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
-
     // NOTE: We need to the full type of
     // self.graphics_pipeline, because `BufferlessVertices` only
     // works when the concrete type of the graphics pipeline is visible
@@ -129,31 +119,23 @@ struct HelloTriangleApplication {
 
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
-    // command_pool: Option<Arc<StandardCommandPool>>,
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
     previous_frame_end: Option<Box<GpuFuture>>,
     recreate_swap_chain: bool,
 
-    frame_count: u32,
+    events_loop: Option<winit::EventsLoop>,
 }
+
 impl HelloTriangleApplication {
     pub fn new() -> Self {
         Default::default()
     }
 
     pub fn run(&mut self) {
-        // self.init_window();
         self.init_vulkan();
         self.main_loop();
-        self.cleanup();
     }
-
-    // fn init_window(&self) {
-    //     WindowBuilder::new()
-    //         .with_title("Vulkan")
-    //         .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
-    // }
 
     fn init_vulkan(&mut self) {
         self.create_instance();
@@ -162,16 +144,9 @@ impl HelloTriangleApplication {
         self.pick_physical_device();
         self.create_logical_device();
         self.create_swap_chain();
-        // NOTE: no `create_image_views`  because image views are handled by
-        // Vulkano and can be accessed via the SwapchainImages created above
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
-
-        // NOTE: No self.create_command_pool() - Vulkano has a `StandardCommandPool`
-        // that is used automatically, but it is possible to use custom pools.
-        // See the vulkano::command_buffer  module docs for details
-
         self.create_command_buffers();
         self.create_sync_objects();
     }
@@ -181,9 +156,9 @@ impl HelloTriangleApplication {
             println!("Validation layers requested, but not available!")
         }
 
-        let extensions = InstanceExtensions::supported_by_core()
+        let supported_extensions = InstanceExtensions::supported_by_core()
             .expect("failed to retrieve supported extensions");
-        println!("Supported extensions: {:?}", extensions);
+        println!("Supported extensions: {:?}", supported_extensions);
 
         let app_info = ApplicationInfo {
             application_name: Some("Hello Triangle".into()),
@@ -192,17 +167,33 @@ impl HelloTriangleApplication {
             engine_version: Some(Version { major: 1, minor: 0, patch: 0 }),
         };
 
-        let extensions = Self::get_required_extensions();
+        let required_extensions = Self::get_required_extensions();
 
         let instance =
             if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-                Instance::new(Some(&app_info), &extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+                Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
                     .expect("failed to create Vulkan instance")
             } else {
-                Instance::new(Some(&app_info), &extensions, None)
+                Instance::new(Some(&app_info), &required_extensions, None)
                     .expect("failed to create Vulkan instance")
             };
         self.instance = Some(instance);
+    }
+
+    fn check_validation_layer_support() -> bool {
+        let layers: Vec<_> = layers_list().unwrap().map(|l| l.name().to_owned()).collect();
+        VALIDATION_LAYERS.iter()
+            .all(|layer_name| layers.contains(&layer_name.to_string()))
+    }
+
+    fn get_required_extensions() -> InstanceExtensions {
+        let mut extensions = vulkano_win::required_extensions();
+        if ENABLE_VALIDATION_LAYERS {
+            // TODO!: this should be ext_debug_utils (_report is deprecated), but that doesn't exist yet in vulkano
+            extensions.ext_debug_report = true;
+        }
+
+        extensions
     }
 
     fn setup_debug_callback(&mut self) {
@@ -250,45 +241,6 @@ impl HelloTriangleApplication {
         available_extensions.intersection(&device_extensions) == device_extensions
     }
 
-    fn create_logical_device(&mut self) {
-        let instance = self.instance.as_ref().unwrap();
-        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
-
-        let indices = self.find_queue_families(&physical_device);
-
-        let families = [indices.graphics_family, indices.present_family];
-        use std::iter::FromIterator;
-        let unique_queue_families: HashSet<&i32> = HashSet::from_iter(families.iter());
-
-        let queue_priority = 1.0;
-        let queue_families = unique_queue_families.iter().map(|i| {
-            (physical_device.queue_families().nth(**i as usize).unwrap(), queue_priority)
-        });
-
-        // NOTE: the tutorial recommends passing the validation layers as well
-        // for legacy reasons (if ENABLE_VALIDATION_LAYERS is true). Vulkano handles that
-        // for us internally.
-
-        let (device, mut queues) = Device::new(physical_device, &Features::none(),
-            &device_extensions(), queue_families)
-            .expect("failed to create logical device!");
-
-        self.device = Some(device);
-
-        // TODO!: simplify
-        self.graphics_queue = queues
-            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.graphics_family as usize).unwrap().id());
-        self.present_queue = queues
-            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.present_family as usize).unwrap().id());
-    }
-
-    fn create_surface(&mut self) {
-        self.events_loop = Some(winit::EventsLoop::new());
-        self.surface = WindowBuilder::new().build_vk_surface(&self.events_loop.as_ref().unwrap(), self.instance().clone())
-            .expect("failed to create window surface!")
-            .into();
-    }
-
     fn query_swap_chain_support(&self, device: &PhysicalDevice) -> Capabilities {
         self.surface.as_ref().unwrap().capabilities(*device)
             .expect("failed to get surface capabilities")
@@ -318,18 +270,11 @@ impl HelloTriangleApplication {
         if let Some(current_extent) = capabilities.current_extent {
             return current_extent
         } else {
-            let window = self.surface.as_ref().unwrap().window();
-            let logical_size = window.get_inner_size().unwrap();
-            let physcal_size = logical_size.to_physical(window.get_hidpi_factor());
-
-            let mut actual_extent = [physcal_size.width as u32, physcal_size.height as u32];
-
-            // old version for earlier tutorial chapter...
-            // let mut actual_extent = [WIDTH, HEIGHT];
-            // actual_extent[0] = capabilities.min_image_extent[0]
-            //     .max(capabilities.max_image_extent[0].min(actual_extent[0]));
-            // actual_extent[1] = capabilities.min_image_extent[1]
-            //     .max(capabilities.max_image_extent[1].min(actual_extent[1]));
+            let mut actual_extent = [WIDTH, HEIGHT];
+            actual_extent[0] = capabilities.min_image_extent[0]
+                .max(capabilities.max_image_extent[0].min(actual_extent[0]));
+            actual_extent[1] = capabilities.min_image_extent[1]
+                .max(capabilities.max_image_extent[1].min(actual_extent[1]));
             actual_extent
         }
     }
@@ -366,7 +311,7 @@ impl HelloTriangleApplication {
             self.device.as_ref().unwrap().clone(),
             self.surface.as_ref().unwrap().clone(),
             image_count,
-            surface_format.0, // TODO!? (color space?)
+            surface_format.0, // TODO: color space?
             extent,
             1, // layers
             image_usage,
@@ -402,31 +347,55 @@ impl HelloTriangleApplication {
     }
 
     fn create_graphics_pipeline(&mut self) {
-        // NOTE: the standard vulkano way is to load shaders as GLSL at
-        // compile-time via macros from the vulkano_shader_derive crate.
-        // Loading SPIR-V at runtime like in the C++ version is partially
-        // implemented, but currently unused.
+        #[allow(unused)]
+        mod vertex_shader {
+            #[derive(VulkanoShader)]
+            #[ty = "vertex"]
+            #[path = "src/bin/09_shader_base.vert"]
+            struct Dummy;
+        }
 
-        // let vert_shader_code = Self::read_file("src/shaders/vert.spv");
-        // let frag_shader_code = Self::read_file("src/shaders/frag.spv");
-        // let vert_shader_module = self.create_shader_module(&vert_shader_code);
-        // let frag_shader_module = self.create_shader_module(&frag_shader_code);
+        #[allow(unused)]
+        mod fragment_shader {
+            #[derive(VulkanoShader)]
+            #[ty = "fragment"]
+            #[path = "src/bin/09_shader_base.frag"]
+            struct Dummy;
+        }
 
         let device = self.device.as_ref().unwrap();
         let vert_shader_module = vertex_shader::Shader::load(device.clone())
-            .expect("failed to create shader module!");
+            .expect("failed to create vertex shader module!");
         let frag_shader_module = fragment_shader::Shader::load(device.clone())
-            .expect("failed to create shader module!");
+            .expect("failed to create fragment shader module!");
+
+        let swap_chain_extent = self.swap_chain_extent.unwrap();
+        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
+        let viewport = Viewport {
+            origin: [0.0, 0.0],
+            dimensions,
+            depth_range: 0.0 .. 1.0,
+        };
 
         self.graphics_pipeline = Some(Arc::new(GraphicsPipeline::start()
             .vertex_input(BufferlessDefinition {})
             .vertex_shader(vert_shader_module.main_entry_point(), ())
             .triangle_list()
-            .viewports_dynamic_scissors_irrelevant(1)
+            .primitive_restart(false)
+            .viewports(vec![viewport]) // NOTE: also sets scissor to cover whole viewport
             .fragment_shader(frag_shader_module.main_entry_point(), ())
+            .depth_clamp(false)
+            // NOTE: there's an outcommented .rasterizer_discard() in Vulkano...
+            .polygon_mode_fill() // = default
+            .line_width(1.0) // = default
+            .cull_mode_back()
+            .front_face_clockwise()
+            // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
+            .blend_pass_through() // = default
             .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
             .build(device.clone())
-            .unwrap()));
+            .unwrap()
+        ));
     }
 
     fn create_framebuffers(&mut self) {
@@ -441,17 +410,6 @@ impl HelloTriangleApplication {
     }
 
     fn create_command_buffers(&mut self) {
-        let swap_chain_extent = self.swap_chain_extent.unwrap();
-        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
-        let dynamic_state = DynamicState {
-            viewports: Some(vec![Viewport {
-                origin: [0.0, 0.0],
-                dimensions,
-                depth_range: 0.0 .. 1.0,
-            }]),
-            .. DynamicState::none()
-        };
-
         let queue_family = self.graphics_queue.as_ref().unwrap().family();
         let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
         self.command_buffers = self.swap_chain_framebuffers.iter()
@@ -461,7 +419,7 @@ impl HelloTriangleApplication {
                     .unwrap()
                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                     .unwrap()
-                    .draw(graphics_pipeline.clone(), &dynamic_state,
+                    .draw(graphics_pipeline.clone(), &DynamicState::none(),
                         vertices, (), ())
                     .unwrap()
                     .end_render_pass()
@@ -475,22 +433,6 @@ impl HelloTriangleApplication {
     fn create_sync_objects(&mut self) {
         self.previous_frame_end =
             Some(Box::new(sync::now(self.device().clone())) as Box<GpuFuture>);
-    }
-
-    #[allow(unused)]
-    fn read_file(filename: &str) -> Vec<u8> {
-        let mut f = File::open(filename)
-            .expect("failed to open file!");
-        let mut buffer = vec![];
-        f.read_to_end(&mut buffer).unwrap();
-        buffer
-    }
-
-    #[allow(unused)]
-    fn create_shader_module(&self, code: &[u8]) -> Arc<ShaderModule> {
-        unsafe {
-            ShaderModule::new(self.device.as_ref().unwrap().clone(), &code)
-        }.expect("failed to create shader module!")
     }
 
     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
@@ -513,33 +455,49 @@ impl HelloTriangleApplication {
         indices
     }
 
-    fn check_validation_layer_support() -> bool {
-        for layer_name in VALIDATION_LAYERS.iter() {
-            let mut layer_found = false;
-            for layer_properties in layers_list().unwrap() {
-                if *layer_name == layer_properties.name() {
-                    layer_found = true;
-                    break
-                }
-            }
-            if !layer_found {
-                return false;
-            }
-        }
+    fn create_logical_device(&mut self) {
+        let instance = self.instance.as_ref().unwrap();
+        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
 
-        true
+        let indices = self.find_queue_families(&physical_device);
+
+        let families = [indices.graphics_family, indices.present_family];
+        use std::iter::FromIterator;
+        let unique_queue_families: HashSet<&i32> = HashSet::from_iter(families.iter());
+
+        let queue_priority = 1.0;
+        let queue_families = unique_queue_families.iter().map(|i| {
+            (physical_device.queue_families().nth(**i as usize).unwrap(), queue_priority)
+        });
+
+        // NOTE: the tutorial recommends passing the validation layers as well
+        // for legacy reasons (if ENABLE_VALIDATION_LAYERS is true). Vulkano handles that
+        // for us internally.
+
+        let (device, mut queues) = Device::new(physical_device, &Features::none(),
+            &device_extensions(), queue_families)
+            .expect("failed to create logical device!");
+
+        self.device = Some(device);
+
+        // TODO!: simplify
+        self.graphics_queue = queues
+            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.graphics_family as usize).unwrap().id());
+        self.present_queue = queues
+            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.present_family as usize).unwrap().id());
     }
 
-    fn get_required_extensions() -> InstanceExtensions {
-        let mut extensions = vulkano_win::required_extensions();
-        if ENABLE_VALIDATION_LAYERS {
-            // TODO!: this should be ext_debug_utils (_report is deprecated), but that doesn't exist yet in vulkano
-            extensions.ext_debug_report = true;
-        }
-
-        extensions
+    fn create_surface(&mut self) {
+        self.events_loop = Some(winit::EventsLoop::new());
+        self.surface = WindowBuilder::new()
+            .with_title("Vulkan")
+            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)))
+            .build_vk_surface(&self.events_loop.as_ref().unwrap(), self.instance().clone())
+            .expect("failed to create window surface!")
+            .into();
     }
 
+    #[allow(unused)]
     fn main_loop(&mut self) {
         loop {
             self.draw_frame();
@@ -547,12 +505,11 @@ impl HelloTriangleApplication {
             let mut done = false;
             self.events_loop.as_mut().unwrap().poll_events(|ev| {
                 match ev {
-                    winit::Event::WindowEvent { event: winit::WindowEvent::CloseRequested, .. } => done = true,
+                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
                     _ => ()
                 }
             });
             if done {
-                // TODO!: vkDeviceWaitIdle(device);?
                 return;
             }
         }
@@ -601,33 +558,16 @@ impl HelloTriangleApplication {
                     = Some(Box::new(vulkano::sync::now(self.device().clone())) as Box<_>);
             }
         }
-
-        self.frame_count += 1;
-        // print!(".");
-        // if (self.frame_count % 60 == 0) {
-        //     print!("{}", self.frame_count);
-        // }
-        // use std::io::{self, Write};
-        // io::stdout().flush().unwrap();
-
-        // self.previous_frame_end = Some(Box::new(future) as Box<_>);
     }
 
     fn recreate_swap_chain(&mut self) {
         unsafe { self.device().wait().unwrap(); }
-
-        // NOTE: no cleanup_swap_chain() required - old resources will be dropped automatically
 
         self.create_swap_chain();
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
         self.create_command_buffers();
-    }
-
-    fn cleanup(&self) {
-        // TODO!: trust automatic drop and remove or use std::mem::drop here? (instance, device etc.)
-        // -> check with validation layers for issues with order...
     }
 
     fn instance(&self) -> &Arc<Instance> {
@@ -645,22 +585,6 @@ impl HelloTriangleApplication {
     fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
         self.swap_chain.as_ref().unwrap()
     }
-}
-
-#[allow(unused)]
-mod vertex_shader {
-    #[derive(VulkanoShader)]
-    #[ty = "vertex"]
-    #[path = "src/shaders/shader.vert"]
-    struct Dummy;
-}
-
-#[allow(unused)]
-mod fragment_shader {
-    #[derive(VulkanoShader)]
-    #[ty = "fragment"]
-    #[path = "src/shaders/shader.frag"]
-    struct Dummy;
 }
 
 fn main() {
