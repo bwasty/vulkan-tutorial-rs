@@ -861,6 +861,53 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics
 [Complete code](src/bin/08_graphics_pipeline.rs)
 
 #### Shader Modules
+https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Shader_modules
+
+Instead of compiling the shaders to SPIR-V manually and loading them at runtime, we'll use [vulkano-shader-derive](https://docs.rs/crate/vulkano-shader-derive/) to do the same at compile-time. Loading them at runtime is also possible, but a bit more invovled - see the [runtime shaders](https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/runtime-shader.rs) example of Vulkano.
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/08_graphics_pipeline.rs
++++ b/09_shader_modules.rs
+@@ -1,4 +1,6 @@
+ extern crate vulkano;
++#[macro_use]
++extern crate vulkano_shader_derive;
+ extern crate vulkano_win;
+ extern crate winit;
+
+@@ -285,7 +287,27 @@ impl HelloTriangleApplication {
+     }
+
+     fn create_graphics_pipeline(&mut self) {
++        #[allow(unused)]
++        mod vertex_shader {
++            #[derive(VulkanoShader)]
++            #[ty = "vertex"]
++            #[path = "src/bin/09_shader_base.vert"]
++            struct Dummy;
++        }
++
++        #[allow(unused)]
++        mod fragment_shader {
++            #[derive(VulkanoShader)]
++            #[ty = "fragment"]
++            #[path = "src/bin/09_shader_base.frag"]
++            struct Dummy;
++        }
+
++        let device = self.device.as_ref().unwrap();
++        let _vert_shader_module = vertex_shader::Shader::load(device.clone())
++            .expect("failed to create vertex shader module!");
++        let _frag_shader_module = fragment_shader::Shader::load(device.clone())
++            .expect("failed to create fragment shader module!");
+     }
+```
+</details>
+
+[Rust code](src/bin/09_shader_modules.rs) / [Vertex shader](src/bin/09_shader_base.vert) / [Fragment shader](src/bin/09_shader_base.frag)
+
 #### Fixed functions
 #### Render passes
 #### Conclusion
