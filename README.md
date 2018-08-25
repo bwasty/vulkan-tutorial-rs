@@ -293,7 +293,99 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers
 #### Physical devices and queue families
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_families
 
-*TODO*
+```diff
+--- a/02_validation_layers.rs
++++ b/03_physical_device_selection.rs
+@@ -11,6 +11,7 @@ use vulkano::instance::{
+     ApplicationInfo,
+     Version,
+     layers_list,
++    PhysicalDevice,
+ };
+ use vulkano::instance::debug::{DebugCallback, MessageTypes};
+
+@@ -26,10 +27,25 @@ const ENABLE_VALIDATION_LAYERS: bool = true;
+ #[cfg(not(debug_assertions))]
+ const ENABLE_VALIDATION_LAYERS: bool = false;
+
++struct QueueFamilyIndices {
++    graphics_family: i32,
++    present_family: i32,
++}
++impl QueueFamilyIndices {
++    fn new() -> Self {
++        Self { graphics_family: -1, present_family: -1 }
++    }
++
++    fn is_complete(&self) -> bool {
++        self.graphics_family >= 0 && self.present_family >= 0
++    }
++}
++
+ #[derive(Default)]
+ struct HelloTriangleApplication {
+     instance: Option<Arc<Instance>>,
+     debug_callback: Option<DebugCallback>,
++    physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
+
+     events_loop: Option<winit::EventsLoop>,
+ }
+@@ -58,6 +74,7 @@ impl HelloTriangleApplication {
+     fn init_vulkan(&mut self) {
+         self.create_instance();
+         self.setup_debug_callback();
++        self.pick_physical_device();
+     }
+
+     fn create_instance(&mut self) {
+@@ -123,6 +140,33 @@ impl HelloTriangleApplication {
+         }).ok();
+     }
+
++    fn pick_physical_device(&mut self) {
++        self.physical_device_index = PhysicalDevice::enumerate(&self.instance())
++            .position(|device| self.is_device_suitable(&device))
++            .expect("failed to find a suitable GPU!");
++    }
++
++    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
++        let indices = self.find_queue_families(device);
++        indices.is_complete()
++    }
++
++    fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
++        let mut indices = QueueFamilyIndices::new();
++        // TODO: replace index with id to simplify?
++        for (i, queue_family) in device.queue_families().enumerate() {
++            if queue_family.supports_graphics() {
++                indices.graphics_family = i as i32;
++            }
++
++            if indices.is_complete() {
++                break;
++            }
++        }
++
++        indices
++    }
++
+     #[allow(unused)]
+     fn main_loop(&mut self) {
+         loop {
+@@ -138,6 +182,10 @@ impl HelloTriangleApplication {
+             }
+         }
+     }
++
++    fn instance(&self) -> &Arc<Instance> {
++        self.instance.as_ref().unwrap()
++    }
+ }
+
+ fn main() {
+```
+[Complete code](src/bin/03_physical_device_selection.rs)
+
 
 #### Logical device and queues
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
