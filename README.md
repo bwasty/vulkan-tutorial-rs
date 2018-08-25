@@ -971,6 +971,83 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_fu
 [Complete code](src/bin/10_fixed_functions.rs)
 
 #### Render passes
+https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Render_passes
+
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/10_fixed_functions.rs
++++ b/11_render_passes.rs
+@@ -1,3 +1,4 @@
++#[macro_use]
+ extern crate vulkano;
+ #[macro_use]
+ extern crate vulkano_shader_derive;
+@@ -38,6 +39,9 @@ use vulkano::pipeline::{
+     vertex::BufferlessDefinition,
+     viewport::Viewport,
+ };
++use vulkano::framebuffer::{
++    RenderPassAbstract,
++};
+
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -90,6 +94,8 @@ struct HelloTriangleApplication {
+     swap_chain_image_format: Option<Format>,
+     swap_chain_extent: Option<[u32; 2]>,
+
++    render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
++
+     events_loop: Option<winit::EventsLoop>,
+ }
+
+@@ -110,6 +116,7 @@ impl HelloTriangleApplication {
+         self.pick_physical_device();
+         self.create_logical_device();
+         self.create_swap_chain();
++        self.create_render_pass();
+         self.create_graphics_pipeline();
+     }
+
+@@ -291,6 +298,23 @@ impl HelloTriangleApplication {
+         self.swap_chain_extent = Some(extent);
+     }
+
++    fn create_render_pass(&mut self) {
++        self.render_pass = Some(Arc::new(single_pass_renderpass!(self.device().clone(),
++            attachments: {
++                color: {
++                    load: Clear,
++                    store: Store,
++                    format: self.swap_chain.as_ref().unwrap().format(),
++                    samples: 1,
++                }
++            },
++            pass: {
++                color: [color],
++                depth_stencil: {}
++            }
++        ).unwrap()));
++    }
++
+     fn create_graphics_pipeline(&mut self) {
+         #[allow(unused)]
+         mod vertex_shader {
+@@ -421,6 +445,10 @@ impl HelloTriangleApplication {
+     fn instance(&self) -> &Arc<Instance> {
+         self.instance.as_ref().unwrap()
+     }
++
++    fn device(&self) -> &Arc<Device> {
++        self.device.as_ref().unwrap()
++    }
+ }
+```
+</details>
+
+[Complete code](src/bin/11_render_passes.rs)
 #### Conclusion
 
 ### Drawing (*TODO*)
