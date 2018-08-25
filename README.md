@@ -23,7 +23,7 @@ Rust version of https://github.com/Overv/VulkanTutorial.
       * [Window surface](#window-surface)
       * [Swap chain](#swap-chain)
       * [Image views](#image-views)
-   * [Graphics pipeline basics (<em>WIP</em>)](#graphics-pipeline-basics-wip)
+   * [Graphics pipeline basics](#graphics-pipeline-basics)
       * [Introduction](#introduction-1)
       * [Shader Modules](#shader-modules)
       * [Fixed functions](#fixed-functions)
@@ -830,8 +830,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Image_views
 
 We're skipping this section because image because image views are handled by Vulkano and can be accessed via the SwapchainImages created in the last section.
 
-### Graphics pipeline basics (*WIP*)
-
+### Graphics pipeline basics
 #### Introduction
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics
 <details>
@@ -1049,6 +1048,78 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Render_p
 
 [Complete code](src/bin/11_render_passes.rs)
 #### Conclusion
+https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Conclusion
+
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/11_render_passes.rs
++++ b/12_graphics_pipeline_complete.rs
+@@ -41,7 +41,9 @@ use vulkano::pipeline::{
+ };
+ use vulkano::framebuffer::{
+     RenderPassAbstract,
++    Subpass,
+ };
++use vulkano::descriptor::PipelineLayoutAbstract;
+
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -77,6 +79,8 @@ impl QueueFamilyIndices {
+     }
+ }
+
++type ConcreteGraphicsPipeline = Arc<GraphicsPipeline<BufferlessDefinition, Box<PipelineLayoutAbstract + Send + Sync + 'static>, Arc<RenderPassAbstract + Send + Sync + 'static>>>;
++
+ #[derive(Default)]
+ struct HelloTriangleApplication {
+     instance: Option<Arc<Instance>>,
+@@ -95,6 +99,13 @@ struct HelloTriangleApplication {
+     swap_chain_extent: Option<[u32; 2]>,
+
+     render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
++    // NOTE: We need to the full type of
++    // self.graphics_pipeline, because `BufferlessVertices` only
++    // works when the concrete type of the graphics pipeline is visible
++    // to the command buffer.
++    // TODO: check if can be simplified later in tutorial
++    // graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
++    graphics_pipeline: Option<ConcreteGraphicsPipeline>,
+
+     events_loop: Option<winit::EventsLoop>,
+ }
+@@ -346,12 +357,13 @@ impl HelloTriangleApplication {
+             depth_range: 0.0 .. 1.0,
+         };
+
+-        let _pipeline_builder = Arc::new(GraphicsPipeline::start()
++        self.graphics_pipeline = Some(Arc::new(GraphicsPipeline::start()
+             .vertex_input(BufferlessDefinition {})
+             .vertex_shader(vert_shader_module.main_entry_point(), ())
+             .triangle_list()
+             .primitive_restart(false)
+             .viewports(vec![viewport]) // NOTE: also sets scissor to cover whole viewport
++            .fragment_shader(frag_shader_module.main_entry_point(), ())
+             .depth_clamp(false)
+             // NOTE: there's an outcommented .rasterizer_discard() in Vulkano...
+             .polygon_mode_fill() // = default
+@@ -360,8 +372,10 @@ impl HelloTriangleApplication {
+             .front_face_clockwise()
+             // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
+             .blend_pass_through() // = default
+-            .fragment_shader(frag_shader_module.main_entry_point(), ())
+-        );
++            .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
++            .build(device.clone())
++            .unwrap()
++        ));
+     }
+```
+</details>
+
+[Complete code](src/bin/12_graphics_pipeline_complete.rs)
+
 
 ### Drawing (*TODO*)
 #### Framebuffers
