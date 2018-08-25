@@ -29,7 +29,7 @@ Rust version of https://github.com/Overv/VulkanTutorial.
       * [Fixed functions](#fixed-functions)
       * [Render passes](#render-passes)
       * [Conclusion](#conclusion)
-   * [Drawing (<em>TODO</em>)](#drawing-todo)
+   * [Drawing](#drawing)
       * [Framebuffers](#framebuffers)
       * [Command buffers](#command-buffers)
       * [Rendering and presentation](#rendering-and-presentation)
@@ -1121,7 +1121,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Conclusi
 [Complete code](src/bin/12_graphics_pipeline_complete.rs)
 
 
-### Drawing (*TODO*)
+### Drawing
 #### Framebuffers
 https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Framebuffers
 
@@ -1180,7 +1180,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Framebuffers
 #### Command buffers
 https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Command_buffers
 
-We're skipping the first part because Vulkano maintains a [`StandardCommandPool`].(https://docs.rs/vulkano/0.10.0/vulkano/command_buffer/pool/standard/struct.StandardCommandPool.html)
+We're skipping the first part because Vulkano maintains a [`StandardCommandPool`](https://docs.rs/vulkano/0.10.0/vulkano/command_buffer/pool/standard/struct.StandardCommandPool.html).
 
 <details>
 <summary>Diff</summary>
@@ -1256,6 +1256,85 @@ We're skipping the first part because Vulkano maintains a [`StandardCommandPool`
 [Complete code](src/bin/14_command_buffers.rs)
 
 #### Rendering and presentation
+https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Rendering_and_presentation
+
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/14_command_buffers.rs
++++ b/15_hello_triangle.rs
+@@ -30,10 +30,11 @@ use vulkano::swapchain::{
+     PresentMode,
+     Swapchain,
+     CompositeAlpha,
++    acquire_next_image
+ };
+ use vulkano::format::Format;
+ use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
+-use vulkano::sync::SharingMode;
++use vulkano::sync::{SharingMode, GpuFuture};
+ use vulkano::pipeline::{
+     GraphicsPipeline,
+     vertex::BufferlessDefinition,
+@@ -129,7 +130,7 @@ impl HelloTriangleApplication {
+
+     pub fn run(&mut self) {
+         self.init_vulkan();
+-        // self.main_loop();
++        self.main_loop();
+     }
+
+     fn init_vulkan(&mut self) {
+@@ -489,6 +490,8 @@ impl HelloTriangleApplication {
+     #[allow(unused)]
+     fn main_loop(&mut self) {
+         loop {
++            self.draw_frame();
++
+             let mut done = false;
+             self.events_loop.as_mut().unwrap().poll_events(|ev| {
+                 match ev {
+@@ -502,6 +505,22 @@ impl HelloTriangleApplication {
+         }
+     }
+
++    fn draw_frame(&mut self) {
++        let swap_chain = self.swap_chain().clone();
++        let (image_index, acquire_future) = acquire_next_image(swap_chain.clone(), None).unwrap();
++
++        let queue = self.graphics_queue().clone();
++        let command_buffer = self.command_buffers[image_index].clone();
++
++        let future = acquire_future
++            .then_execute(queue.clone(), command_buffer)
++            .unwrap()
++            .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
++            .then_signal_fence_and_flush()
++            .unwrap();
++        future.wait(None).unwrap();
++    }
++
+     fn instance(&self) -> &Arc<Instance> {
+         self.instance.as_ref().unwrap()
+     }
+@@ -509,6 +528,14 @@ impl HelloTriangleApplication {
+     fn device(&self) -> &Arc<Device> {
+         self.device.as_ref().unwrap()
+     }
++
++    fn graphics_queue(&self) -> &Arc<Queue> {
++        self.graphics_queue.as_ref().unwrap()
++    }
++
++    fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
++        self.swap_chain.as_ref().unwrap()
++    }
+ }
+```
+</details>
+
+[Complete code](src/bin/15_hello_triangle.rs)
 
 ### Swapchain recreation (*TODO*)
 [Complete code](src/main.rs)
