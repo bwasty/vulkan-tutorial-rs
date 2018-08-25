@@ -639,6 +639,190 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Window_surface
 [Complete code](src/bin/05_window_surface.rs)
 
 #### Swap chain
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/05_window_surface.rs
++++ b/06_swap_chain_creation.rs
+@@ -21,7 +21,16 @@ use vulkano::instance::debug::{DebugCallback, MessageTypes};
+ use vulkano::device::{Device, DeviceExtensions, Queue};
+ use vulkano::swapchain::{
+     Surface,
++    Capabilities,
++    ColorSpace,
++    SupportedPresentModes,
++    PresentMode,
++    Swapchain,
++    CompositeAlpha,
+ };
++use vulkano::format::Format;
++use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
++use vulkano::sync::SharingMode;
+
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -30,6 +39,14 @@ const VALIDATION_LAYERS: &[&str] =  &[
+     "VK_LAYER_LUNARG_standard_validation"
+ ];
+
++/// Required device extensions
++fn device_extensions() -> DeviceExtensions {
++    DeviceExtensions {
++        khr_swapchain: true,
++        .. vulkano::device::DeviceExtensions::none()
++    }
++}
++
+ #[cfg(all(debug_assertions))]
+ const ENABLE_VALIDATION_LAYERS: bool = true;
+ #[cfg(not(debug_assertions))]
+@@ -61,6 +78,11 @@ struct HelloTriangleApplication {
+     graphics_queue: Option<Arc<Queue>>,
+     present_queue: Option<Arc<Queue>>,
+
++    swap_chain: Option<Arc<Swapchain<winit::Window>>>,
++    swap_chain_images: Option<Vec<Arc<SwapchainImage<winit::Window>>>>,
++    swap_chain_image_format: Option<Format>,
++    swap_chain_extent: Option<[u32; 2]>,
++
+     events_loop: Option<winit::EventsLoop>,
+ }
+
+@@ -80,6 +102,7 @@ impl HelloTriangleApplication {
+         self.create_surface();
+         self.pick_physical_device();
+         self.create_logical_device();
++        self.create_swap_chain();
+     }
+
+     fn create_instance(&mut self) {
+@@ -153,7 +176,111 @@ impl HelloTriangleApplication {
+
+     fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
+         let indices = self.find_queue_families(device);
+-        indices.is_complete()
++        let extensions_supported = Self::check_device_extension_support(device);
++
++        let swap_chain_adequate = if extensions_supported {
++                let capabilities = self.query_swap_chain_support(device);
++                !capabilities.supported_formats.is_empty() &&
++                    capabilities.present_modes.iter().next().is_some()
++            } else {
++                false
++            };
++
++        indices.is_complete() && extensions_supported && swap_chain_adequate
++    }
++
++    fn check_device_extension_support(device: &PhysicalDevice) -> bool {
++        let available_extensions = DeviceExtensions::supported_by_device(*device);
++        let device_extensions = device_extensions();
++        available_extensions.intersection(&device_extensions) == device_extensions
++    }
++
++    fn query_swap_chain_support(&self, device: &PhysicalDevice) -> Capabilities {
++        self.surface.as_ref().unwrap().capabilities(*device)
++            .expect("failed to get surface capabilities")
++    }
++
++    fn choose_swap_surface_format(available_formats: &[(Format, ColorSpace)]) -> (Format, ColorSpace) {
++        // NOTE: the 'preferred format' mentioned in the tutorial doesn't seem to be
++        // queryable in Vulkano (no VK_FORMAT_UNDEFINED enum)
++        *available_formats.iter()
++            .find(|(format, color_space)|
++                *format == Format::B8G8R8A8Unorm && *color_space == ColorSpace::SrgbNonLinear
++            )
++            .unwrap_or_else(|| &available_formats[0])
++    }
++
++    fn choose_swap_present_mode(available_present_modes: SupportedPresentModes) -> PresentMode {
++        if available_present_modes.mailbox {
++            PresentMode::Mailbox
++        } else if available_present_modes.immediate {
++            PresentMode::Immediate
++        } else {
++            PresentMode::Fifo
++        }
++    }
++
++    fn choose_swap_extent(&self, capabilities: &Capabilities) -> [u32; 2] {
++        if let Some(current_extent) = capabilities.current_extent {
++            return current_extent
++        } else {
++            let mut actual_extent = [WIDTH, HEIGHT];
++            actual_extent[0] = capabilities.min_image_extent[0]
++                .max(capabilities.max_image_extent[0].min(actual_extent[0]));
++            actual_extent[1] = capabilities.min_image_extent[1]
++                .max(capabilities.max_image_extent[1].min(actual_extent[1]));
++            actual_extent
++        }
++    }
++
++    fn create_swap_chain(&mut self) {
++        let instance = self.instance.as_ref().unwrap();
++        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
++
++        let capabilities = self.query_swap_chain_support(&physical_device);
++
++        let surface_format = Self::choose_swap_surface_format(&capabilities.supported_formats);
++        let present_mode = Self::choose_swap_present_mode(capabilities.present_modes);
++        let extent = self.choose_swap_extent(&capabilities);
++
++        let mut image_count = capabilities.min_image_count + 1;
++        if capabilities.max_image_count.is_some() && image_count > capabilities.max_image_count.unwrap() {
++            image_count = capabilities.max_image_count.unwrap();
++        }
++
++        let image_usage = ImageUsage {
++            color_attachment: true,
++            .. ImageUsage::none()
++        };
++
++        let indices = self.find_queue_families(&physical_device);
++
++        let sharing: SharingMode = if indices.graphics_family != indices.present_family {
++            vec![self.graphics_queue.as_ref().unwrap(), self.present_queue.as_ref().unwrap()].as_slice().into()
++        } else {
++            self.graphics_queue.as_ref().unwrap().into()
++        };
++
++        let (swap_chain, images) = Swapchain::new(
++            self.device.as_ref().unwrap().clone(),
++            self.surface.as_ref().unwrap().clone(),
++            image_count,
++            surface_format.0, // TODO: color space?
++            extent,
++            1, // layers
++            image_usage,
++            sharing,
++            capabilities.current_transform,
++            CompositeAlpha::Opaque,
++            present_mode,
++            true, // clipped
++            None, // old_swapchain
++        ).expect("failed to create swap chain!");
++
++        self.swap_chain = Some(swap_chain);
++        self.swap_chain_images = Some(images);
++        self.swap_chain_image_format = Some(surface_format.0);
++        self.swap_chain_extent = Some(extent);
+     }
+
+     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+@@ -196,7 +323,7 @@ impl HelloTriangleApplication {
+         // for us internally.
+
+         let (device, mut queues) = Device::new(physical_device, &Features::none(),
+-            &DeviceExtensions::none(), queue_families)
++            &device_extensions(), queue_families)
+             .expect("failed to create logical device!");
+
+         self.device = Some(device);
+```
+</details>
+
+[Complete code](src/bin/06_swap_chain_creation.rs)
 
 #### Image views
 

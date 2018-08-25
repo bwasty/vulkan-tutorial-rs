@@ -375,7 +375,7 @@ impl HelloTriangleApplication {
             CompositeAlpha::Opaque,
             present_mode,
             true, // clipped
-            self.swap_chain.as_ref(), // old_swapchain
+            None, // old_swapchain
         ).expect("failed to create swap chain!");
 
         self.swap_chain = Some(swap_chain);
