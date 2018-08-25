@@ -1178,6 +1178,83 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Framebuffers
 [Complete code](src/bin/13_framebuffers.rs)
 
 #### Command buffers
+https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Command_buffers
+
+We're skipping the first part because Vulkano maintains a [`StandardCommandPool`].(https://docs.rs/vulkano/0.10.0/vulkano/command_buffer/pool/standard/struct.StandardCommandPool.html)
+
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/13_framebuffers.rs
++++ b/14_command_buffers.rs
+@@ -37,6 +37,7 @@ use vulkano::sync::SharingMode;
+ use vulkano::pipeline::{
+     GraphicsPipeline,
+     vertex::BufferlessDefinition,
++    vertex::BufferlessVertices,
+     viewport::Viewport,
+ };
+ use vulkano::framebuffer::{
+@@ -46,6 +47,11 @@ use vulkano::framebuffer::{
+     Framebuffer,
+ };
+ use vulkano::descriptor::PipelineLayoutAbstract;
++use vulkano::command_buffer::{
++    AutoCommandBuffer,
++    AutoCommandBufferBuilder,
++    DynamicState,
++};
+
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -111,6 +117,8 @@ struct HelloTriangleApplication {
+
+     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
+
++    command_buffers: Vec<Arc<AutoCommandBuffer>>,
++
+     events_loop: Option<winit::EventsLoop>,
+ }
+
+@@ -134,6 +142,7 @@ impl HelloTriangleApplication {
+         self.create_render_pass();
+         self.create_graphics_pipeline();
+         self.create_framebuffers();
++        self.create_command_buffers();
+     }
+
+     fn create_instance(&mut self) {
+@@ -394,6 +403,27 @@ impl HelloTriangleApplication {
+         ).collect::<Vec<_>>();
+     }
+
++    fn create_command_buffers(&mut self) {
++        let queue_family = self.graphics_queue.as_ref().unwrap().family();
++        let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
++        self.command_buffers = self.swap_chain_framebuffers.iter()
++            .map(|framebuffer| {
++                let vertices = BufferlessVertices { vertices: 3, instances: 1 };
++                Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
++                    .unwrap()
++                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
++                    .unwrap()
++                    .draw(graphics_pipeline.clone(), &DynamicState::none(),
++                        vertices, (), ())
++                    .unwrap()
++                    .end_render_pass()
++                    .unwrap()
++                    .build()
++                    .unwrap())
++            })
++            .collect();
++    }
++
+```
+</details>
+
+[Complete code](src/bin/14_command_buffers.rs)
+
 #### Rendering and presentation
 
 ### Swapchain recreation (*TODO*)
