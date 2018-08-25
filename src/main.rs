@@ -375,7 +375,7 @@ impl HelloTriangleApplication {
             CompositeAlpha::Opaque,
             present_mode,
             true, // clipped
-            None, // old_swapchain
+            self.swap_chain.as_ref(), // old_swapchain
         ).expect("failed to create swap chain!");
 
         self.swap_chain = Some(swap_chain);
@@ -401,7 +401,6 @@ impl HelloTriangleApplication {
         ).unwrap()));
     }
 
-    #[allow(unused)]
     fn create_graphics_pipeline(&mut self) {
         // NOTE: the standard vulkano way is to load shaders as GLSL at
         // compile-time via macros from the vulkano_shader_derive crate.

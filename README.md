@@ -23,7 +23,7 @@ Rust version of https://github.com/Overv/VulkanTutorial.
       * [Window surface](#window-surface)
       * [Swap chain](#swap-chain)
       * [Image views](#image-views)
-   * [Graphics pipeline basics (<em>TODO</em>)](#graphics-pipeline-basics-todo)
+   * [Graphics pipeline basics (<em>WIP</em>)](#graphics-pipeline-basics-wip)
       * [Introduction](#introduction-1)
       * [Shader Modules](#shader-modules)
       * [Fixed functions](#fixed-functions)
@@ -639,6 +639,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Window_surface
 [Complete code](src/bin/05_window_surface.rs)
 
 #### Swap chain
+https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain
 <details>
 <summary>Diff</summary>
 
@@ -825,10 +826,40 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Window_surface
 [Complete code](src/bin/06_swap_chain_creation.rs)
 
 #### Image views
+https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Image_views
 
-### Graphics pipeline basics (*TODO*)
+We're skipping this section because image because image views are handled by Vulkano and can be accessed via the SwapchainImages created in the last section.
+
+### Graphics pipeline basics (*WIP*)
 
 #### Introduction
+https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/06_swap_chain_creation.rs
++++ b/08_graphics_pipeline.rs
+@@ -103,6 +103,7 @@ impl HelloTriangleApplication {
+         self.pick_physical_device();
+         self.create_logical_device();
+         self.create_swap_chain();
++        self.create_graphics_pipeline();
+     }
+
+     fn create_instance(&mut self) {
+@@ -283,6 +284,10 @@ impl HelloTriangleApplication {
+         self.swap_chain_extent = Some(extent);
+     }
+
++    fn create_graphics_pipeline(&mut self) {
++
++    }
+```
+</details>
+
+[Complete code](src/bin/08_graphics_pipeline.rs)
+
 #### Shader Modules
 #### Fixed functions
 #### Render passes
