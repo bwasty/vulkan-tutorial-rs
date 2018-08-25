@@ -12,8 +12,10 @@ use vulkano::instance::{
     Version,
     layers_list,
     PhysicalDevice,
+    Features
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
+use vulkano::device::{Device, DeviceExtensions, Queue};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -45,6 +47,9 @@ struct HelloTriangleApplication {
     instance: Option<Arc<Instance>>,
     debug_callback: Option<DebugCallback>,
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
+    device: Option<Arc<Device>>,
+
+    graphics_queue: Option<Arc<Queue>>,
 
     events_loop: Option<winit::EventsLoop>,
 }
@@ -74,6 +79,7 @@ impl HelloTriangleApplication {
         self.create_instance();
         self.setup_debug_callback();
         self.pick_physical_device();
+        self.create_logical_device();
     }
 
     fn create_instance(&mut self) {
@@ -164,6 +170,26 @@ impl HelloTriangleApplication {
         }
 
         indices
+    }
+
+    fn create_logical_device(&mut self) {
+        let instance = self.instance.as_ref().unwrap();
+        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
+        let indices = self.find_queue_families(&physical_device);
+        let queue_family = physical_device.queue_families()
+            .nth(indices.graphics_family as usize).unwrap();
+        let queue_priority = 1.0;
+
+        // NOTE: the tutorial recommends passing the validation layers as well
+        // for legacy reasons (if ENABLE_VALIDATION_LAYERS is true). Vulkano handles that
+        // for us internally.
+
+        let (device, mut queues) = Device::new(physical_device, &Features::none(), &DeviceExtensions::none(),
+            [(queue_family, queue_priority)].iter().cloned())
+            .expect("failed to create logical device!");
+
+        self.device = Some(device);
+        self.graphics_queue = queues.next();
     }
 
     #[allow(unused)]
