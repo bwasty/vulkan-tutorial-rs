@@ -187,6 +187,10 @@ struct HelloTriangleApplication {
 
 #### Validation layers
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers
+
+<details>
+<summary>Diff</summary>
+
 ```diff
 --- a/01_instance_creation.rs
 +++ b/02_validation_layers.rs
@@ -286,12 +290,16 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers
 +        }).ok();
      }
 ```
+</details>
 
 [Complete code](src/bin/02_validation_layers.rs)
 
 
 #### Physical devices and queue families
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_families
+
+<details>
+<summary>Diff</summary>
 
 ```diff
 --- a/02_validation_layers.rs
@@ -384,11 +392,16 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_
 
  fn main() {
 ```
+</details>
+
 [Complete code](src/bin/03_physical_device_selection.rs)
 
 
 #### Logical device and queues
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
+
+<details>
+<summary>Diff</summary>
 
 ```diff
 --- a/03_physical_device_selection.rs
@@ -450,6 +463,8 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
      fn main_loop(&mut self) {
          loop {
 ```
+</details>
+
 [Complete code](src/bin/04_logical_device.rs)
 
 ### Presentation
