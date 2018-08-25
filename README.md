@@ -10,19 +10,37 @@ Rust version of https://github.com/Overv/VulkanTutorial.
 * [Overview](#overview)
 * [Development Environment](#development-environment)
 * [Drawing a triangle](#drawing-a-triangle)
-    * [Setup](#setup)
-    * [Base code](#base-code)
-        * [General structure](#general-structure)
-        * [Resource management](#resource-management)
-        * [Integrating <del>GLFW</del> winit](#integrating-glfw-winit)
-    * [Instance](#instance)
-    * [Validation layers](#validation-layers)
-    * [Physical devices and queue families](#physical-devices-and-queue-families)
-    * [Logical device and queues](#logical-device-and-queues)
-    * [Presentation](#presentation)
-    * [Graphics pipeline basics](#graphics-pipeline-basics)
-    * [Drawing](#drawing)
-    * [Swapchain recreation](#swapchain-recreation)
+   * [Setup](#setup)
+      * [Base code](#base-code)
+         * [General structure](#general-structure)
+         * [Resource management](#resource-management)
+         * [Integrating <del>GLFW</del> winit](#integrating-glfw-winit)
+      * [Instance](#instance)
+      * [Validation layers](#validation-layers)
+      * [Physical devices and queue families](#physical-devices-and-queue-families)
+      * [Logical device and queues](#logical-device-and-queues)
+   * [Presentation](#presentation)
+      * [Window surface](#window-surface)
+      * [Swap chain](#swap-chain)
+      * [Image views](#image-views)
+   * [Graphics pipeline basics (<em>TODO</em>)](#graphics-pipeline-basics-todo)
+      * [Introduction](#introduction-1)
+      * [Shader Modules](#shader-modules)
+      * [Fixed functions](#fixed-functions)
+      * [Render passes](#render-passes)
+      * [Conclusion](#conclusion)
+   * [Drawing (<em>TODO</em>)](#drawing-todo)
+      * [Framebuffers](#framebuffers)
+      * [Command buffers](#command-buffers)
+      * [Rendering and presentation](#rendering-and-presentation)
+   * [Swapchain recreation (<em>TODO</em>)](#swapchain-recreation-todo)
+* [Vertex buffers (<em>TODO</em>)](#vertex-buffers-todo)
+* [Uniform buffers (<em>TODO</em>)](#uniform-buffers-todo)
+* [Texture mapping (<em>TODO</em>)](#texture-mapping-todo)
+* [Depth buffering (<em>TODO</em>)](#depth-buffering-todo)
+* [Loading models (<em>TODO</em>)](#loading-models-todo)
+* [Generating Mipmaps (<em>TODO</em>)](#generating-mipmaps-todo)
+* [Multisampling (<em>TODO</em>)](#multisampling-todo)
 
 ## Introduction
 This tutorial consists of the the ported code and notes about the differences between the original C++ and the Rust code.
@@ -468,7 +486,9 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
 [Complete code](src/bin/04_logical_device.rs)
 
 ### Presentation
+
 #### Window surface
+https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Window_surface
 <details>
 <summary>Diff</summary>
 
@@ -618,20 +638,33 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
 
 [Complete code](src/bin/05_window_surface.rs)
 
+#### Swap chain
 
-### Graphics pipeline basics
+#### Image views
 
-*TODO*
+### Graphics pipeline basics (*TODO*)
 
-### Drawing
+#### Introduction
+#### Shader Modules
+#### Fixed functions
+#### Render passes
+#### Conclusion
 
-*TODO*
+### Drawing (*TODO*)
+#### Framebuffers
+#### Command buffers
+#### Rendering and presentation
 
-### Swapchain recreation
-
-*TODO*
-
+### Swapchain recreation (*TODO*)
 [Complete code](src/main.rs)
+
+## Vertex buffers (*TODO*)
+## Uniform buffers (*TODO*)
+## Texture mapping (*TODO*)
+## Depth buffering (*TODO*)
+## Loading models (*TODO*)
+## Generating Mipmaps (*TODO*)
+## Multisampling (*TODO*)
 
 ---
 <details>
