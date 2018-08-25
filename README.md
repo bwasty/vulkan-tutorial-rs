@@ -33,7 +33,7 @@ Rust version of https://github.com/Overv/VulkanTutorial.
       * [Framebuffers](#framebuffers)
       * [Command buffers](#command-buffers)
       * [Rendering and presentation](#rendering-and-presentation)
-   * [Swapchain recreation (<em>TODO</em>)](#swapchain-recreation-todo)
+   * [Swapchain recreation](#swapchain-recreation)
 * [Vertex buffers (<em>TODO</em>)](#vertex-buffers-todo)
 * [Uniform buffers (<em>TODO</em>)](#uniform-buffers-todo)
 * [Texture mapping (<em>TODO</em>)](#texture-mapping-todo)
@@ -1336,8 +1336,135 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Rendering_and_presentatio
 
 [Complete code](src/bin/15_hello_triangle.rs)
 
-### Swapchain recreation (*TODO*)
-[Complete code](src/main.rs)
+### Swapchain recreation
+https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation
+
+<details>
+<summary>Diff</summary>
+
+```diff
+--- a/15_hello_triangle.rs
++++ b/16_swap_chain_recreation.rs
+@@ -30,11 +30,12 @@ use vulkano::swapchain::{
+     PresentMode,
+     Swapchain,
+     CompositeAlpha,
+-    acquire_next_image
++    acquire_next_image,
++    AcquireError,
+ };
+ use vulkano::format::Format;
+ use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
+-use vulkano::sync::{SharingMode, GpuFuture};
++use vulkano::sync::{self, SharingMode, GpuFuture};
+ use vulkano::pipeline::{
+     GraphicsPipeline,
+     vertex::BufferlessDefinition,
+@@ -120,6 +121,9 @@ struct HelloTriangleApplication {
+
+     command_buffers: Vec<Arc<AutoCommandBuffer>>,
+
++    previous_frame_end: Option<Box<GpuFuture>>,
++    recreate_swap_chain: bool,
++
+     events_loop: Option<winit::EventsLoop>,
+ }
+
+@@ -144,6 +148,7 @@ impl HelloTriangleApplication {
+         self.create_graphics_pipeline();
+         self.create_framebuffers();
+         self.create_command_buffers();
++        self.create_sync_objects();
+     }
+
+     fn create_instance(&mut self) {
+@@ -315,7 +320,7 @@ impl HelloTriangleApplication {
+             CompositeAlpha::Opaque,
+             present_mode,
+             true, // clipped
+-            None, // old_swapchain
++            self.swap_chain.as_ref(), // old_swapchain
+         ).expect("failed to create swap chain!");
+
+         self.swap_chain = Some(swap_chain);
+@@ -425,6 +430,11 @@ impl HelloTriangleApplication {
+             .collect();
+     }
+
++    fn create_sync_objects(&mut self) {
++        self.previous_frame_end =
++            Some(Box::new(sync::now(self.device().clone())) as Box<GpuFuture>);
++    }
++
+     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+         let mut indices = QueueFamilyIndices::new();
+         // TODO: replace index with id to simplify?
+@@ -506,19 +516,58 @@ impl HelloTriangleApplication {
+     }
+
+     fn draw_frame(&mut self) {
++        self.previous_frame_end.as_mut().unwrap().cleanup_finished();
++
++        if self.recreate_swap_chain {
++            self.recreate_swap_chain();
++            self.recreate_swap_chain = false;
++        }
++
+         let swap_chain = self.swap_chain().clone();
+-        let (image_index, acquire_future) = acquire_next_image(swap_chain.clone(), None).unwrap();
++        let (image_index, acquire_future) = match acquire_next_image(swap_chain.clone(), None) {
++            Ok(r) => r,
++            Err(AcquireError::OutOfDate) => {
++                self.recreate_swap_chain = true;
++                return;
++            },
++            Err(err) => panic!("{:?}", err)
++        };
+
+         let queue = self.graphics_queue().clone();
+         let command_buffer = self.command_buffers[image_index].clone();
+
+-        let future = acquire_future
++        let future = self.previous_frame_end.take().unwrap()
++            .join(acquire_future)
+             .then_execute(queue.clone(), command_buffer)
+             .unwrap()
+             .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
+-            .then_signal_fence_and_flush()
+-            .unwrap();
+-        future.wait(None).unwrap();
++            .then_signal_fence_and_flush();
++
++        match future {
++            Ok(future) => {
++                self.previous_frame_end = Some(Box::new(future) as Box<_>);
++            }
++            Err(vulkano::sync::FlushError::OutOfDate) => {
++                self.recreate_swap_chain = true;
++                self.previous_frame_end
++                    = Some(Box::new(vulkano::sync::now(self.device().clone())) as Box<_>);
++            }
++            Err(e) => {
++                println!("{:?}", e);
++                self.previous_frame_end
++                    = Some(Box::new(vulkano::sync::now(self.device().clone())) as Box<_>);
++            }
++        }
++    }
++
++    fn recreate_swap_chain(&mut self) {
++        unsafe { self.device().wait().unwrap(); }
++
++        self.create_swap_chain();
++        self.create_render_pass();
++        self.create_graphics_pipeline();
++        self.create_framebuffers();
++        self.create_command_buffers();
+     }
+```
+</details>
+
+[Complete code](src/bin/16_swap_chain_recreation.rs)
 
 ## Vertex buffers (*TODO*)
 ## Uniform buffers (*TODO*)
