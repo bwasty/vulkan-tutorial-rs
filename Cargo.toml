@@ -2,7 +2,7 @@
 name = "vulkan-tutorial-rs"
 version = "0.1.0"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
-autobins = false # TODO: TMP
+autobins = true
 
 [dependencies]
 vulkano = "0.10.0"
@@ -11,9 +11,6 @@ image = "0.19.0"
 vulkano-win = "0.10.0"
 winit = "0.17.1"
 
-# TODO: TMP
-[[bin]]
-name = "main"
+# [[bin]]
+# name = "main"
 # path = "src/main.rs"
-# path = "src/bin/18_vertex_buffer.rs"
-path = "src/bin/19_staging_buffer.rs"
