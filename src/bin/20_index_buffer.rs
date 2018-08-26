@@ -376,7 +376,7 @@ impl HelloTriangleApplication {
         mod vertex_shader {
             #[derive(VulkanoShader)]
             #[ty = "vertex"]
-            #[path = "src/shaders/shader.vert"]
+            #[path = "src/bin/17_shader_vertexbuffer.vert"]
             struct Dummy;
         }
 
@@ -384,7 +384,7 @@ impl HelloTriangleApplication {
         mod fragment_shader {
             #[derive(VulkanoShader)]
             #[ty = "fragment"]
-            #[path = "src/shaders/shader.frag"]
+            #[path = "src/bin/17_shader_vertexbuffer.frag"]
             struct Dummy;
         }
 
