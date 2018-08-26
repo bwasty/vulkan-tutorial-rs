@@ -14,4 +14,6 @@ winit = "0.17.1"
 # TODO: TMP
 [[bin]]
 name = "main"
-path = "src/main.rs"
+# path = "src/main.rs"
+# path = "src/bin/18_vertex_buffer.rs"
+path = "src/bin/19_staging_buffer.rs"
