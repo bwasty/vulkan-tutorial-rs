@@ -44,7 +44,7 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
 
 ## Introduction
 This tutorial consists of the the ported code and notes about the differences between the original C++ and the Rust code.
-The [explanatory texts](https://vulkan-tutorial.com/Introduction) generally apply equally, although the Rust version is often shorter due to the use of [Vulkano](http://vulkano.rs/), a safe wrapper around the Vulkan API with some convencience methods (the final triangle example is about 600 lines, compared to 950 lines in C++).
+The [explanatory texts](https://vulkan-tutorial.com/Introduction) generally apply equally, although the Rust version is often shorter due to the use of [Vulkano](http://vulkano.rs/), a safe wrapper around the Vulkan API with some convencience functionality (the final triangle example is about 600 lines, compared to 950 lines in C++).
 
 If you prefer a lower-level API closer to the Vulkan C API, have a look at [Ash](https://github.com/MaikKlein/ash) and [vulkan-tutorial-rust](https://github.com/Usami-Renko/vulkan-tutorial-rust).
 
@@ -120,7 +120,7 @@ And extend your main.rs:
 ```rust
 extern crate winit;
 
-use winit::{ WindowBuilder, dpi::LogicalSize};
+use winit::{WindowBuilder, dpi::LogicalSize};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -142,16 +142,17 @@ const HEIGHT: u32 = 600;
 ```
 ```rust
     fn main_loop(&mut self) {
-    loop {
-        let mut done = false;
-        self.events_loop.as_mut().unwrap().poll_events(|ev| {
-            match ev {
-                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                _ => ()
+        loop {
+            let mut done = false;
+            self.events_loop.as_mut().unwrap().poll_events(|ev| {
+                match ev {
+                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
+                    _ => ()
+                }
+            });
+            if done {
+                return;
             }
-        });
-        if done {
-            return;
         }
     }
 ```
@@ -162,10 +163,16 @@ const HEIGHT: u32 = 600;
 #### Instance
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Instance
 
+Cargo.toml:
+```
+vulkano-win = "0.10.0"
+```
+main.rs:
 ```rust
 extern crate vulkano_win;
 ```
 ```rust
+use std::sync::Arc;
 use vulkano::instance::{
     Instance,
     InstanceExtensions,
@@ -409,8 +416,6 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_
 +        self.instance.as_ref().unwrap()
 +    }
  }
-
- fn main() {
 ```
 </details>
 
@@ -479,9 +484,6 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
 +        self.graphics_queue = queues.next();
 +    }
 +
-     #[allow(unused)]
-     fn main_loop(&mut self) {
-         loop {
 ```
 </details>
 
@@ -830,7 +832,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain
 #### Image views
 https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Image_views
 
-We're skipping this section because image because image views are handled by Vulkano and can be accessed via the SwapchainImages created in the last section.
+We're skipping this section because image views are handled by Vulkano and can be accessed via the `SwapchainImage`s created in the last section.
 
 ### Graphics pipeline basics
 #### Introduction
@@ -1476,12 +1478,11 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation
 ## Generating Mipmaps (*TODO*)
 ## Multisampling (*TODO*)
 
----
+<!--
 <details>
 <summary>Diff</summary>
-
 ```diff
 ```
 </details>
-
 [Complete code](src/bin/XXX.rs)
+-->
