@@ -1,5 +1,5 @@
 # vulkan-tutorial-rs
-Rust version of https://github.com/Overv/VulkanTutorial.
+Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://vulkano.rs/).
 
 **Goal**: Rust port with code structure as similar as possible to the original C++, so the original tutorial can easily be followed (similar to [learn-opengl-rs](https://github.com/bwasty/learn-opengl-rs)).
 
@@ -44,7 +44,9 @@ Rust version of https://github.com/Overv/VulkanTutorial.
 
 ## Introduction
 This tutorial consists of the the ported code and notes about the differences between the original C++ and the Rust code.
-The [explanatory texts](https://vulkan-tutorial.com/Introduction) generally apply equally, although the Rust version is often shorter due to the use of [Vulkano](http://vulkano.rs/), a safe wrapper around the Vulkan API.
+The [explanatory texts](https://vulkan-tutorial.com/Introduction) generally apply equally, although the Rust version is often shorter due to the use of [Vulkano](http://vulkano.rs/), a safe wrapper around the Vulkan API with some convencience methods (the final triangle example is about 600 lines, compared to 950 lines in C++).
+
+If you prefer a lower-level API closer to the Vulkan C API, have a look at [Ash](https://github.com/MaikKlein/ash) and [vulkan-tutorial-rust](https://github.com/Usami-Renko/vulkan-tutorial-rust).
 
 ## Overview
 https://vulkan-tutorial.com/Overview
@@ -64,7 +66,7 @@ Then add this to your `Cargo.toml`:
 vulkano = "0.10.0"
 ```
 
-On macOS, copy [mac-env.sh](mac-env.sh), adapt the `VULKAN_SDK` if necessary and `source` the file in your terminal. See also [vulkano-rs/vulkano#macos-and-ios-setup](https://github.com/vulkano-rs/vulkano#macos-and-ios-setup).
+On macOS, copy [mac-env.sh](mac-env.sh), adapt the `VULKAN_SDK` path if necessary and `source` the file in your terminal. See also [vulkano-rs/vulkano#macos-and-ios-setup](https://github.com/vulkano-rs/vulkano#macos-and-ios-setup).
 
 ## Drawing a triangle
 ### Setup
