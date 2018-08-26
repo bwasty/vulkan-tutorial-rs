@@ -2,6 +2,7 @@
 name = "vulkan-tutorial-rs"
 version = "0.1.0"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
+autobins = false # TODO: TMP
 
 [dependencies]
 vulkano = "0.10.0"
@@ -10,5 +11,7 @@ image = "0.19.0"
 vulkano-win = "0.10.0"
 winit = "0.17.1"
 
-# [[bin]]
-# name = "main"
+# TODO: TMP
+[[bin]]
+name = "main"
+path = "src/main.rs"
