@@ -1,0 +1,52 @@
+--- a/09_shader_modules.rs
++++ b/10_fixed_functions.rs
+@@ -33,6 +33,11 @@ use vulkano::swapchain::{
+ use vulkano::format::Format;
+ use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
+ use vulkano::sync::SharingMode;
++use vulkano::pipeline::{
++    GraphicsPipeline,
++    vertex::BufferlessDefinition,
++    viewport::Viewport,
++};
+ 
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -304,10 +309,35 @@ impl HelloTriangleApplication {
+         }
+ 
+         let device = self.device.as_ref().unwrap();
+-        let _vert_shader_module = vertex_shader::Shader::load(device.clone())
++        let vert_shader_module = vertex_shader::Shader::load(device.clone())
+             .expect("failed to create vertex shader module!");
+-        let _frag_shader_module = fragment_shader::Shader::load(device.clone())
++        let frag_shader_module = fragment_shader::Shader::load(device.clone())
+             .expect("failed to create fragment shader module!");
++
++        let swap_chain_extent = self.swap_chain_extent.unwrap();
++        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
++        let viewport = Viewport {
++            origin: [0.0, 0.0],
++            dimensions,
++            depth_range: 0.0 .. 1.0,
++        };
++
++        let _pipeline_builder = Arc::new(GraphicsPipeline::start()
++            .vertex_input(BufferlessDefinition {})
++            .vertex_shader(vert_shader_module.main_entry_point(), ())
++            .triangle_list()
++            .primitive_restart(false)
++            .viewports(vec![viewport]) // NOTE: also sets scissor to cover whole viewport
++            .depth_clamp(false)
++            // NOTE: there's an outcommented .rasterizer_discard() in Vulkano...
++            .polygon_mode_fill() // = default
++            .line_width(1.0) // = default
++            .cull_mode_back()
++            .front_face_clockwise()
++            // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
++            .blend_pass_through() // = default
++            .fragment_shader(frag_shader_module.main_entry_point(), ())
++        );
+     }
+ 
+     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {

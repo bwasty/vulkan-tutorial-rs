@@ -1,0 +1,21 @@
+--- a/06_swap_chain_creation.rs
++++ b/08_graphics_pipeline.rs
+@@ -103,6 +103,7 @@ impl HelloTriangleApplication {
+         self.pick_physical_device();
+         self.create_logical_device();
+         self.create_swap_chain();
++        self.create_graphics_pipeline();
+     }
+ 
+     fn create_instance(&mut self) {
+@@ -283,6 +284,10 @@ impl HelloTriangleApplication {
+         self.swap_chain_extent = Some(extent);
+     }
+ 
++    fn create_graphics_pipeline(&mut self) {
++
++    }
++
+     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+         let mut indices = QueueFamilyIndices::new();
+         // TODO: replace index with id to simplify?

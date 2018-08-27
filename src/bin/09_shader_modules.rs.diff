@@ -1,0 +1,37 @@
+--- a/08_graphics_pipeline.rs
++++ b/09_shader_modules.rs
+@@ -1,4 +1,6 @@
+ extern crate vulkano;
++#[macro_use]
++extern crate vulkano_shader_derive;
+ extern crate vulkano_win;
+ extern crate winit;
+ 
+@@ -285,7 +287,27 @@ impl HelloTriangleApplication {
+     }
+ 
+     fn create_graphics_pipeline(&mut self) {
++        #[allow(unused)]
++        mod vertex_shader {
++            #[derive(VulkanoShader)]
++            #[ty = "vertex"]
++            #[path = "src/bin/09_shader_base.vert"]
++            struct Dummy;
++        }
++
++        #[allow(unused)]
++        mod fragment_shader {
++            #[derive(VulkanoShader)]
++            #[ty = "fragment"]
++            #[path = "src/bin/09_shader_base.frag"]
++            struct Dummy;
++        }
+ 
++        let device = self.device.as_ref().unwrap();
++        let _vert_shader_module = vertex_shader::Shader::load(device.clone())
++            .expect("failed to create vertex shader module!");
++        let _frag_shader_module = fragment_shader::Shader::load(device.clone())
++            .expect("failed to create fragment shader module!");
+     }
+ 
+     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
