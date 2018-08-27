@@ -132,10 +132,8 @@ struct HelloTriangleApplication {
     graphics_queue: Arc<Queue>,
     present_queue: Arc<Queue>,
 
-    swap_chain: Option<Arc<Swapchain<winit::Window>>>,
-    swap_chain_images: Option<Vec<Arc<SwapchainImage<winit::Window>>>>,
-    swap_chain_image_format: Option<Format>,
-    swap_chain_extent: Option<[u32; 2]>,
+    swap_chain: Arc<Swapchain<Window>>,
+    swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
 
     render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
     graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
@@ -160,11 +158,14 @@ impl HelloTriangleApplication {
         let (device, graphics_queue, present_queue) = Self::create_logical_device(
             &instance, &surface, physical_device_index);
 
-        // self.create_swap_chain(instance.clone());
+        let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
+            &device, &graphics_queue, &present_queue, None);
 
         Self {
             instance,
             debug_callback,
+
+            events_loop,
             surface,
 
             physical_device_index,
@@ -173,10 +174,8 @@ impl HelloTriangleApplication {
             graphics_queue,
             present_queue,
 
-            swap_chain: None,
-            swap_chain_images: None,
-            swap_chain_image_format: None,
-            swap_chain_extent: None,
+            swap_chain,
+            swap_chain_images,
 
             render_pass: None,
             graphics_pipeline: None,
@@ -189,9 +188,7 @@ impl HelloTriangleApplication {
 
             previous_frame_end: None,
             recreate_swap_chain: false,
-
-            events_loop,
-    }
+        }
     }
 
     pub fn run(&mut self) {
@@ -200,9 +197,6 @@ impl HelloTriangleApplication {
     }
 
     fn init_vulkan(&mut self) {
-        let instance = self.instance.clone();
-        let surface = self.surface.clone();
-        self.create_swap_chain(&instance, &surface);
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
@@ -320,7 +314,7 @@ impl HelloTriangleApplication {
         }
     }
 
-    fn choose_swap_extent(&self, capabilities: &Capabilities) -> [u32; 2] {
+    fn choose_swap_extent(capabilities: &Capabilities) -> [u32; 2] {
         if let Some(current_extent) = capabilities.current_extent {
             return current_extent
         } else {
@@ -333,14 +327,22 @@ impl HelloTriangleApplication {
         }
     }
 
-    fn create_swap_chain(&mut self, instance: &Arc<Instance>, surface: &Arc<Surface<Window>>) {
-        let physical_device = PhysicalDevice::from_index(&instance, self.physical_device_index).unwrap();
+    fn create_swap_chain(
+        instance: &Arc<Instance>,
+        surface: &Arc<Surface<Window>>,
+        physical_device_index: usize,
+        device: &Arc<Device>,
+        graphics_queue: &Arc<Queue>,
+        present_queue: &Arc<Queue>,
+        old_swapchain: Option<Arc<Swapchain<Window>>>,
+    ) -> (Arc<Swapchain<Window>>, Vec<Arc<SwapchainImage<Window>>>) {
+        let physical_device = PhysicalDevice::from_index(&instance, physical_device_index).unwrap();
         let capabilities = surface.capabilities(physical_device)
             .expect("failed to get surface capabilities");
 
         let surface_format = Self::choose_swap_surface_format(&capabilities.supported_formats);
         let present_mode = Self::choose_swap_present_mode(capabilities.present_modes);
-        let extent = self.choose_swap_extent(&capabilities);
+        let extent = Self::choose_swap_extent(&capabilities);
 
         let mut image_count = capabilities.min_image_count + 1;
         if capabilities.max_image_count.is_some() && image_count > capabilities.max_image_count.unwrap() {
@@ -355,13 +357,13 @@ impl HelloTriangleApplication {
         let indices = Self::find_queue_families(&surface, &physical_device);
 
         let sharing: SharingMode = if indices.graphics_family != indices.present_family {
-            vec![&self.graphics_queue, &self.present_queue].as_slice().into()
+            vec![graphics_queue, present_queue].as_slice().into()
         } else {
-            (&self.graphics_queue).into()
+            graphics_queue.into()
         };
 
         let (swap_chain, images) = Swapchain::new(
-            self.device.clone(),
+            device.clone(),
             surface.clone(),
             image_count,
             surface_format.0, // TODO: color space?
@@ -373,13 +375,10 @@ impl HelloTriangleApplication {
             CompositeAlpha::Opaque,
             present_mode,
             true, // clipped
-            self.swap_chain.as_ref(), // old_swapchain
+            old_swapchain.as_ref()
         ).expect("failed to create swap chain!");
 
-        self.swap_chain = Some(swap_chain);
-        self.swap_chain_images = Some(images);
-        self.swap_chain_image_format = Some(surface_format.0);
-        self.swap_chain_extent = Some(extent);
+        (swap_chain, images)
     }
 
     fn create_render_pass(&mut self) {
@@ -388,7 +387,7 @@ impl HelloTriangleApplication {
                 color: {
                     load: Clear,
                     store: Store,
-                    format: self.swap_chain.as_ref().unwrap().format(),
+                    format: self.swap_chain.format(),
                     samples: 1,
                 }
             },
@@ -421,7 +420,7 @@ impl HelloTriangleApplication {
         let frag_shader_module = fragment_shader::Shader::load(self.device.clone())
             .expect("failed to create fragment shader module!");
 
-        let swap_chain_extent = self.swap_chain_extent.unwrap();
+        let swap_chain_extent = self.swap_chain.dimensions();
         let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
         let viewport = Viewport {
             origin: [0.0, 0.0],
@@ -451,7 +450,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_framebuffers(&mut self) {
-        self.swap_chain_framebuffers = self.swap_chain_images.as_ref().unwrap().iter()
+        self.swap_chain_framebuffers = self.swap_chain_images.iter()
             .map(|image| {
                 let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(self.render_pass.as_ref().unwrap().clone())
                     .add(image.clone()).unwrap()
@@ -592,8 +591,7 @@ impl HelloTriangleApplication {
             self.recreate_swap_chain = false;
         }
 
-        let swap_chain = self.swap_chain().clone();
-        let (image_index, acquire_future) = match acquire_next_image(swap_chain.clone(), None) {
+        let (image_index, acquire_future) = match acquire_next_image(self.swap_chain.clone(), None) {
             Ok(r) => r,
             Err(AcquireError::OutOfDate) => {
                 self.recreate_swap_chain = true;
@@ -608,7 +606,7 @@ impl HelloTriangleApplication {
             .join(acquire_future)
             .then_execute(self.graphics_queue.clone(), command_buffer)
             .unwrap()
-            .then_swapchain_present(self.present_queue.clone(), swap_chain.clone(), image_index)
+            .then_swapchain_present(self.present_queue.clone(), self.swap_chain.clone(), image_index)
             .then_signal_fence_and_flush();
 
         match future {
@@ -631,17 +629,15 @@ impl HelloTriangleApplication {
     fn recreate_swap_chain(&mut self) {
         unsafe { self.device.wait().unwrap(); }
 
-        let instance = self.instance.clone();
-        let surface = self.surface.clone();
-        self.create_swap_chain(&instance, &surface);
+        let (swap_chain, images) = Self::create_swap_chain(&self.instance, &self.surface, self.physical_device_index,
+            &self.device, &self.graphics_queue, &self.present_queue, Some(self.swap_chain.clone()));
+        self.swap_chain = swap_chain;
+        self.swap_chain_images = images;
+
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
         self.create_command_buffers();
-    }
-
-    fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
-        self.swap_chain.as_ref().unwrap()
     }
 }
 
