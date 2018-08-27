@@ -1,0 +1,71 @@
+--- a/14_command_buffers.rs
++++ b/15_hello_triangle.rs
+@@ -30,10 +30,11 @@ use vulkano::swapchain::{
+     PresentMode,
+     Swapchain,
+     CompositeAlpha,
++    acquire_next_image
+ };
+ use vulkano::format::Format;
+ use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
+-use vulkano::sync::SharingMode;
++use vulkano::sync::{SharingMode, GpuFuture};
+ use vulkano::pipeline::{
+     GraphicsPipeline,
+     vertex::BufferlessDefinition,
+@@ -129,7 +130,7 @@ impl HelloTriangleApplication {
+ 
+     pub fn run(&mut self) {
+         self.init_vulkan();
+-        // self.main_loop();
++        self.main_loop();
+     }
+ 
+     fn init_vulkan(&mut self) {
+@@ -489,6 +490,8 @@ impl HelloTriangleApplication {
+     #[allow(unused)]
+     fn main_loop(&mut self) {
+         loop {
++            self.draw_frame();
++
+             let mut done = false;
+             self.events_loop.as_mut().unwrap().poll_events(|ev| {
+                 match ev {
+@@ -502,6 +505,22 @@ impl HelloTriangleApplication {
+         }
+     }
+ 
++    fn draw_frame(&mut self) {
++        let swap_chain = self.swap_chain().clone();
++        let (image_index, acquire_future) = acquire_next_image(swap_chain.clone(), None).unwrap();
++
++        let queue = self.graphics_queue().clone();
++        let command_buffer = self.command_buffers[image_index].clone();
++
++        let future = acquire_future
++            .then_execute(queue.clone(), command_buffer)
++            .unwrap()
++            .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
++            .then_signal_fence_and_flush()
++            .unwrap();
++        future.wait(None).unwrap();
++    }
++
+     fn instance(&self) -> &Arc<Instance> {
+         self.instance.as_ref().unwrap()
+     }
+@@ -509,6 +528,14 @@ impl HelloTriangleApplication {
+     fn device(&self) -> &Arc<Device> {
+         self.device.as_ref().unwrap()
+     }
++
++    fn graphics_queue(&self) -> &Arc<Queue> {
++        self.graphics_queue.as_ref().unwrap()
++    }
++
++    fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
++        self.swap_chain.as_ref().unwrap()
++    }
+ }
+ 
+ fn main() {

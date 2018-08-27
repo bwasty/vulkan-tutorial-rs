@@ -1,0 +1,46 @@
+--- a/12_graphics_pipeline_complete.rs
++++ b/13_framebuffers.rs
+@@ -42,6 +42,8 @@ use vulkano::pipeline::{
+ use vulkano::framebuffer::{
+     RenderPassAbstract,
+     Subpass,
++    FramebufferAbstract,
++    Framebuffer,
+ };
+ use vulkano::descriptor::PipelineLayoutAbstract;
+ 
+@@ -107,6 +109,8 @@ struct HelloTriangleApplication {
+     // graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
+     graphics_pipeline: Option<ConcreteGraphicsPipeline>,
+ 
++    swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
++
+     events_loop: Option<winit::EventsLoop>,
+ }
+ 
+@@ -129,6 +133,7 @@ impl HelloTriangleApplication {
+         self.create_swap_chain();
+         self.create_render_pass();
+         self.create_graphics_pipeline();
++        self.create_framebuffers();
+     }
+ 
+     fn create_instance(&mut self) {
+@@ -378,6 +383,17 @@ impl HelloTriangleApplication {
+         ));
+     }
+ 
++    fn create_framebuffers(&mut self) {
++        self.swap_chain_framebuffers = self.swap_chain_images.as_ref().unwrap().iter()
++            .map(|image| {
++                let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(self.render_pass.as_ref().unwrap().clone())
++                    .add(image.clone()).unwrap()
++                    .build().unwrap());
++                fba
++            }
++        ).collect::<Vec<_>>();
++    }
++
+     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+         let mut indices = QueueFamilyIndices::new();
+         // TODO: replace index with id to simplify?
