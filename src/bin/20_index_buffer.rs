@@ -135,8 +135,8 @@ struct HelloTriangleApplication {
     swap_chain: Arc<Swapchain<Window>>,
     swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
 
-    render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
-    graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
+    render_pass: Arc<RenderPassAbstract + Send + Sync>,
+    graphics_pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
 
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
@@ -161,6 +161,9 @@ impl HelloTriangleApplication {
         let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
             &device, &graphics_queue, &present_queue, None);
 
+        let render_pass = Self::create_render_pass(&device, swap_chain.format());
+        let graphics_pipeline = Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
+
         Self {
             instance,
             debug_callback,
@@ -177,8 +180,8 @@ impl HelloTriangleApplication {
             swap_chain,
             swap_chain_images,
 
-            render_pass: None,
-            graphics_pipeline: None,
+            render_pass,
+            graphics_pipeline,
 
             swap_chain_framebuffers: vec![],
 
@@ -197,8 +200,6 @@ impl HelloTriangleApplication {
     }
 
     fn init_vulkan(&mut self) {
-        self.create_render_pass();
-        self.create_graphics_pipeline();
         self.create_framebuffers();
         self.create_vertex_buffer();
         self.create_index_buffer();
@@ -381,13 +382,13 @@ impl HelloTriangleApplication {
         (swap_chain, images)
     }
 
-    fn create_render_pass(&mut self) {
-        self.render_pass = Some(Arc::new(single_pass_renderpass!(self.device.clone(),
+    fn create_render_pass(device: &Arc<Device>, color_format: Format) -> Arc<RenderPassAbstract + Send + Sync> {
+        Arc::new(single_pass_renderpass!(device.clone(),
             attachments: {
                 color: {
                     load: Clear,
                     store: Store,
-                    format: self.swap_chain.format(),
+                    format: color_format,
                     samples: 1,
                 }
             },
@@ -395,10 +396,14 @@ impl HelloTriangleApplication {
                 color: [color],
                 depth_stencil: {}
             }
-        ).unwrap()));
+        ).unwrap())
     }
 
-    fn create_graphics_pipeline(&mut self) {
+    fn create_graphics_pipeline(
+        device: &Arc<Device>,
+        swap_chain_extent: [u32; 2],
+        render_pass: &Arc<RenderPassAbstract + Send + Sync>,
+    ) -> Arc<GraphicsPipelineAbstract + Send + Sync> {
         #[allow(unused)]
         mod vertex_shader {
             #[derive(VulkanoShader)]
@@ -415,12 +420,11 @@ impl HelloTriangleApplication {
             struct Dummy;
         }
 
-        let vert_shader_module = vertex_shader::Shader::load(self.device.clone())
+        let vert_shader_module = vertex_shader::Shader::load(device.clone())
             .expect("failed to create vertex shader module!");
-        let frag_shader_module = fragment_shader::Shader::load(self.device.clone())
+        let frag_shader_module = fragment_shader::Shader::load(device.clone())
             .expect("failed to create fragment shader module!");
 
-        let swap_chain_extent = self.swap_chain.dimensions();
         let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
         let viewport = Viewport {
             origin: [0.0, 0.0],
@@ -428,7 +432,7 @@ impl HelloTriangleApplication {
             depth_range: 0.0 .. 1.0,
         };
 
-        self.graphics_pipeline = Some(Arc::new(GraphicsPipeline::start()
+        Arc::new(GraphicsPipeline::start()
             .vertex_input_single_buffer::<Vertex>()
             .vertex_shader(vert_shader_module.main_entry_point(), ())
             .triangle_list()
@@ -443,16 +447,16 @@ impl HelloTriangleApplication {
             .front_face_clockwise()
             // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
             .blend_pass_through() // = default
-            .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
-            .build(self.device.clone())
+            .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+            .build(device.clone())
             .unwrap()
-        ));
+        )
     }
 
     fn create_framebuffers(&mut self) {
         self.swap_chain_framebuffers = self.swap_chain_images.iter()
             .map(|image| {
-                let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(self.render_pass.as_ref().unwrap().clone())
+                let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(self.render_pass.clone())
                     .add(image.clone()).unwrap()
                     .build().unwrap());
                 fba
@@ -480,14 +484,13 @@ impl HelloTriangleApplication {
 
     fn create_command_buffers(&mut self) {
         let queue_family = self.graphics_queue.family();
-        let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
         self.command_buffers = self.swap_chain_framebuffers.iter()
             .map(|framebuffer| {
                 Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device.clone(), queue_family)
                     .unwrap()
                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                     .unwrap()
-                    .draw_indexed(graphics_pipeline.clone(), &DynamicState::none(),
+                    .draw_indexed(self.graphics_pipeline.clone(), &DynamicState::none(),
                         vec![self.vertex_buffer.as_ref().unwrap().clone()],
                         self.index_buffer.as_ref().unwrap().clone(), (), ())
                     .unwrap()
@@ -634,8 +637,9 @@ impl HelloTriangleApplication {
         self.swap_chain = swap_chain;
         self.swap_chain_images = images;
 
-        self.create_render_pass();
-        self.create_graphics_pipeline();
+        self.render_pass = Self::create_render_pass(&self.device, self.swap_chain.format());
+        self.graphics_pipeline = Self::create_graphics_pipeline(&self.device, self.swap_chain.dimensions(),
+            &self.render_pass);
         self.create_framebuffers();
         self.create_command_buffers();
     }
