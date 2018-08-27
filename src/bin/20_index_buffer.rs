@@ -8,7 +8,7 @@ extern crate winit;
 use std::sync::Arc;
 use std::collections::HashSet;
 
-use winit::{ WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
+use winit::{EventsLoop, WindowBuilder, Window, dpi::LogicalSize, Event, WindowEvent};
 use vulkano_win::VkSurfaceBuild;
 
 use vulkano::instance::{
@@ -118,17 +118,19 @@ fn indices() -> [u16; 6] {
     [0, 1, 2, 2, 3, 0]
 }
 
-#[derive(Default)]
 struct HelloTriangleApplication {
-    instance: Option<Arc<Instance>>,
+    instance: Arc<Instance>,
+    #[allow(unused)]
     debug_callback: Option<DebugCallback>,
-    surface: Option<Arc<Surface<winit::Window>>>,
+
+    events_loop: EventsLoop,
+    surface: Arc<Surface<Window>>,
 
     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
-    device: Option<Arc<Device>>,
+    device: Arc<Device>,
 
-    graphics_queue: Option<Arc<Queue>>,
-    present_queue: Option<Arc<Queue>>,
+    graphics_queue: Arc<Queue>,
+    present_queue: Arc<Queue>,
 
     swap_chain: Option<Arc<Swapchain<winit::Window>>>,
     swap_chain_images: Option<Vec<Arc<SwapchainImage<winit::Window>>>>,
@@ -146,13 +148,50 @@ struct HelloTriangleApplication {
 
     previous_frame_end: Option<Box<GpuFuture>>,
     recreate_swap_chain: bool,
-
-    events_loop: Option<winit::EventsLoop>,
 }
 
 impl HelloTriangleApplication {
     pub fn new() -> Self {
-        Default::default()
+        let instance = Self::create_instance();
+        let debug_callback = Self::setup_debug_callback(&instance);
+        let (events_loop, surface) = Self::create_surface(&instance);
+
+        let physical_device_index = Self::pick_physical_device(&instance, &surface);
+        let (device, graphics_queue, present_queue) = Self::create_logical_device(
+            &instance, &surface, physical_device_index);
+
+        // self.create_swap_chain(instance.clone());
+
+        Self {
+            instance,
+            debug_callback,
+            surface,
+
+            physical_device_index,
+            device,
+
+            graphics_queue,
+            present_queue,
+
+            swap_chain: None,
+            swap_chain_images: None,
+            swap_chain_image_format: None,
+            swap_chain_extent: None,
+
+            render_pass: None,
+            graphics_pipeline: None,
+
+            swap_chain_framebuffers: vec![],
+
+            vertex_buffer: None,
+            index_buffer: None,
+            command_buffers: vec![],
+
+            previous_frame_end: None,
+            recreate_swap_chain: false,
+
+            events_loop,
+    }
     }
 
     pub fn run(&mut self) {
@@ -161,12 +200,9 @@ impl HelloTriangleApplication {
     }
 
     fn init_vulkan(&mut self) {
-        self.create_instance();
-        self.setup_debug_callback();
-        self.create_surface();
-        self.pick_physical_device();
-        self.create_logical_device();
-        self.create_swap_chain();
+        let instance = self.instance.clone();
+        let surface = self.surface.clone();
+        self.create_swap_chain(&instance, &surface);
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
@@ -176,7 +212,7 @@ impl HelloTriangleApplication {
         self.create_sync_objects();
     }
 
-    fn create_instance(&mut self) {
+    fn create_instance() -> Arc<Instance> {
         if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
             println!("Validation layers requested, but not available!")
         }
@@ -194,15 +230,13 @@ impl HelloTriangleApplication {
 
         let required_extensions = Self::get_required_extensions();
 
-        let instance =
             if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
                 Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
                     .expect("failed to create Vulkan instance")
             } else {
                 Instance::new(Some(&app_info), &required_extensions, None)
                     .expect("failed to create Vulkan instance")
-            };
-        self.instance = Some(instance);
+        }
     }
 
     fn check_validation_layer_support() -> bool {
@@ -221,12 +255,11 @@ impl HelloTriangleApplication {
         extensions
     }
 
-    fn setup_debug_callback(&mut self) {
+    fn setup_debug_callback(instance: &Arc<Instance>) -> Option<DebugCallback> {
         if !ENABLE_VALIDATION_LAYERS  {
-            return;
+            return None;
         }
 
-        let instance = self.instance.as_ref().unwrap();
         let msg_types = MessageTypes {
             error: true,
             warning: true,
@@ -234,23 +267,24 @@ impl HelloTriangleApplication {
             information: false,
             debug: true,
         };
-        self.debug_callback = DebugCallback::new(instance, msg_types, |msg| {
+        DebugCallback::new(&instance, msg_types, |msg| {
             println!("validation layer: {:?}", msg.description);
-        }).ok();
+        }).ok()
     }
 
-    fn pick_physical_device(&mut self) {
-        self.physical_device_index = PhysicalDevice::enumerate(&self.instance())
-            .position(|device| self.is_device_suitable(&device))
-            .expect("failed to find a suitable GPU!");
+    fn pick_physical_device(instance: &Arc<Instance>, surface: &Arc<Surface<Window>>) -> usize {
+        PhysicalDevice::enumerate(&instance)
+            .position(|device| Self::is_device_suitable(surface, &device))
+            .expect("failed to find a suitable GPU!")
     }
 
-    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
-        let indices = self.find_queue_families(device);
+    fn is_device_suitable(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> bool {
+        let indices = Self::find_queue_families(surface, device);
         let extensions_supported = Self::check_device_extension_support(device);
 
         let swap_chain_adequate = if extensions_supported {
-                let capabilities = self.query_swap_chain_support(device);
+                let capabilities = surface.capabilities(*device)
+                    .expect("failed to get surface capabilities");
                 !capabilities.supported_formats.is_empty() &&
                     capabilities.present_modes.iter().next().is_some()
             } else {
@@ -264,11 +298,6 @@ impl HelloTriangleApplication {
         let available_extensions = DeviceExtensions::supported_by_device(*device);
         let device_extensions = device_extensions();
         available_extensions.intersection(&device_extensions) == device_extensions
-    }
-
-    fn query_swap_chain_support(&self, device: &PhysicalDevice) -> Capabilities {
-        self.surface.as_ref().unwrap().capabilities(*device)
-            .expect("failed to get surface capabilities")
     }
 
     fn choose_swap_surface_format(available_formats: &[(Format, ColorSpace)]) -> (Format, ColorSpace) {
@@ -304,11 +333,10 @@ impl HelloTriangleApplication {
         }
     }
 
-    fn create_swap_chain(&mut self) {
-        let instance = self.instance.as_ref().unwrap();
-        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
-
-        let capabilities = self.query_swap_chain_support(&physical_device);
+    fn create_swap_chain(&mut self, instance: &Arc<Instance>, surface: &Arc<Surface<Window>>) {
+        let physical_device = PhysicalDevice::from_index(&instance, self.physical_device_index).unwrap();
+        let capabilities = surface.capabilities(physical_device)
+            .expect("failed to get surface capabilities");
 
         let surface_format = Self::choose_swap_surface_format(&capabilities.supported_formats);
         let present_mode = Self::choose_swap_present_mode(capabilities.present_modes);
@@ -324,17 +352,17 @@ impl HelloTriangleApplication {
             .. ImageUsage::none()
         };
 
-        let indices = self.find_queue_families(&physical_device);
+        let indices = Self::find_queue_families(&surface, &physical_device);
 
         let sharing: SharingMode = if indices.graphics_family != indices.present_family {
-            vec![self.graphics_queue.as_ref().unwrap(), self.present_queue.as_ref().unwrap()].as_slice().into()
+            vec![&self.graphics_queue, &self.present_queue].as_slice().into()
         } else {
-            self.graphics_queue.as_ref().unwrap().into()
+            (&self.graphics_queue).into()
         };
 
         let (swap_chain, images) = Swapchain::new(
-            self.device.as_ref().unwrap().clone(),
-            self.surface.as_ref().unwrap().clone(),
+            self.device.clone(),
+            surface.clone(),
             image_count,
             surface_format.0, // TODO: color space?
             extent,
@@ -355,7 +383,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_render_pass(&mut self) {
-        self.render_pass = Some(Arc::new(single_pass_renderpass!(self.device().clone(),
+        self.render_pass = Some(Arc::new(single_pass_renderpass!(self.device.clone(),
             attachments: {
                 color: {
                     load: Clear,
@@ -388,10 +416,9 @@ impl HelloTriangleApplication {
             struct Dummy;
         }
 
-        let device = self.device.as_ref().unwrap();
-        let vert_shader_module = vertex_shader::Shader::load(device.clone())
+        let vert_shader_module = vertex_shader::Shader::load(self.device.clone())
             .expect("failed to create vertex shader module!");
-        let frag_shader_module = fragment_shader::Shader::load(device.clone())
+        let frag_shader_module = fragment_shader::Shader::load(self.device.clone())
             .expect("failed to create fragment shader module!");
 
         let swap_chain_extent = self.swap_chain_extent.unwrap();
@@ -418,7 +445,7 @@ impl HelloTriangleApplication {
             // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
             .blend_pass_through() // = default
             .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
-            .build(device.clone())
+            .build(self.device.clone())
             .unwrap()
         ));
     }
@@ -437,7 +464,7 @@ impl HelloTriangleApplication {
     fn create_vertex_buffer(&mut self) {
         let (buffer, future) = ImmutableBuffer::from_iter(
             vertices().iter().cloned(), BufferUsage::vertex_buffer(),
-            self.graphics_queue().clone())
+            self.graphics_queue.clone())
             .unwrap();
         future.flush().unwrap();
         self.vertex_buffer = Some(buffer);
@@ -446,18 +473,18 @@ impl HelloTriangleApplication {
     fn create_index_buffer(&mut self) {
         let (buffer, future) = ImmutableBuffer::from_iter(
             indices().iter().cloned(), BufferUsage::index_buffer(),
-            self.graphics_queue().clone())
+            self.graphics_queue.clone())
             .unwrap();
         future.flush().unwrap();
         self.index_buffer = Some(buffer);
     }
 
     fn create_command_buffers(&mut self) {
-        let queue_family = self.graphics_queue.as_ref().unwrap().family();
+        let queue_family = self.graphics_queue.family();
         let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
         self.command_buffers = self.swap_chain_framebuffers.iter()
             .map(|framebuffer| {
-                Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
+                Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device.clone(), queue_family)
                     .unwrap()
                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                     .unwrap()
@@ -475,10 +502,10 @@ impl HelloTriangleApplication {
 
     fn create_sync_objects(&mut self) {
         self.previous_frame_end =
-            Some(Box::new(sync::now(self.device().clone())) as Box<GpuFuture>);
+            Some(Box::new(sync::now(self.device.clone())) as Box<GpuFuture>);
     }
 
-    fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+    fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
         let mut indices = QueueFamilyIndices::new();
         // TODO: replace index with id to simplify?
         for (i, queue_family) in device.queue_families().enumerate() {
@@ -486,7 +513,7 @@ impl HelloTriangleApplication {
                 indices.graphics_family = i as i32;
             }
 
-            if self.surface.as_ref().unwrap().is_supported(queue_family).unwrap() {
+            if surface.is_supported(queue_family).unwrap() {
                 indices.present_family = i as i32;
             }
 
@@ -498,11 +525,13 @@ impl HelloTriangleApplication {
         indices
     }
 
-    fn create_logical_device(&mut self) {
-        let instance = self.instance.as_ref().unwrap();
-        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
-
-        let indices = self.find_queue_families(&physical_device);
+    fn create_logical_device(
+        instance: &Arc<Instance>,
+        surface: &Arc<Surface<Window>>,
+        physical_device_index: usize,
+    ) -> (Arc<Device>, Arc<Queue>, Arc<Queue>) {
+        let physical_device = PhysicalDevice::from_index(&instance, physical_device_index).unwrap();
+        let indices = Self::find_queue_families(&surface, &physical_device);
 
         let families = [indices.graphics_family, indices.present_family];
         use std::iter::FromIterator;
@@ -521,23 +550,20 @@ impl HelloTriangleApplication {
             &device_extensions(), queue_families)
             .expect("failed to create logical device!");
 
-        self.device = Some(device);
+        let graphics_queue = queues.next().unwrap();
+        let present_queue = queues.next().unwrap_or_else(|| graphics_queue.clone());
 
-        // TODO!: simplify
-        self.graphics_queue = queues
-            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.graphics_family as usize).unwrap().id());
-        self.present_queue = queues
-            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.present_family as usize).unwrap().id());
+        (device, graphics_queue, present_queue)
     }
 
-    fn create_surface(&mut self) {
-        self.events_loop = Some(winit::EventsLoop::new());
-        self.surface = WindowBuilder::new()
+    fn create_surface(instance: &Arc<Instance>) -> (EventsLoop, Arc<Surface<Window>>) {
+        let events_loop = EventsLoop::new();
+        let surface = WindowBuilder::new()
             .with_title("Vulkan")
             .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)))
-            .build_vk_surface(&self.events_loop.as_ref().unwrap(), self.instance().clone())
-            .expect("failed to create window surface!")
-            .into();
+            .build_vk_surface(&events_loop, instance.clone())
+            .expect("failed to create window surface!");
+        (events_loop, surface)
     }
 
     #[allow(unused)]
@@ -546,7 +572,7 @@ impl HelloTriangleApplication {
             self.draw_frame();
 
             let mut done = false;
-            self.events_loop.as_mut().unwrap().poll_events(|ev| {
+            self.events_loop.poll_events(|ev| {
                 match ev {
                     Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
                     _ => ()
@@ -576,14 +602,13 @@ impl HelloTriangleApplication {
             Err(err) => panic!("{:?}", err)
         };
 
-        let queue = self.graphics_queue().clone();
         let command_buffer = self.command_buffers[image_index].clone();
 
         let future = self.previous_frame_end.take().unwrap()
             .join(acquire_future)
-            .then_execute(queue.clone(), command_buffer)
+            .then_execute(self.graphics_queue.clone(), command_buffer)
             .unwrap()
-            .then_swapchain_present(queue.clone(), swap_chain.clone(), image_index)
+            .then_swapchain_present(self.present_queue.clone(), swap_chain.clone(), image_index)
             .then_signal_fence_and_flush();
 
         match future {
@@ -593,36 +618,26 @@ impl HelloTriangleApplication {
             Err(vulkano::sync::FlushError::OutOfDate) => {
                 self.recreate_swap_chain = true;
                 self.previous_frame_end
-                    = Some(Box::new(vulkano::sync::now(self.device().clone())) as Box<_>);
+                    = Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
             }
             Err(e) => {
                 println!("{:?}", e);
                 self.previous_frame_end
-                    = Some(Box::new(vulkano::sync::now(self.device().clone())) as Box<_>);
+                    = Some(Box::new(vulkano::sync::now(self.device.clone())) as Box<_>);
             }
         }
     }
 
     fn recreate_swap_chain(&mut self) {
-        unsafe { self.device().wait().unwrap(); }
+        unsafe { self.device.wait().unwrap(); }
 
-        self.create_swap_chain();
+        let instance = self.instance.clone();
+        let surface = self.surface.clone();
+        self.create_swap_chain(&instance, &surface);
         self.create_render_pass();
         self.create_graphics_pipeline();
         self.create_framebuffers();
         self.create_command_buffers();
-    }
-
-    fn instance(&self) -> &Arc<Instance> {
-        self.instance.as_ref().unwrap()
-    }
-
-    fn device(&self) -> &Arc<Device> {
-        self.device.as_ref().unwrap()
-    }
-
-    fn graphics_queue(&self) -> &Arc<Queue> {
-        self.graphics_queue.as_ref().unwrap()
     }
 
     fn swap_chain(&self) -> &Arc<Swapchain<winit::Window>> {
