@@ -3,7 +3,7 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
 
 **Goal**: Rust port with code structure as similar as possible to the original C++, so the original tutorial can easily be followed (similar to [learn-opengl-rs](https://github.com/bwasty/learn-opengl-rs)).
 
-**Current State**: The first major part, `Drawing a triangle`, is complete.
+**Current State**: The chapters `Drawing a triangle` and `Vertex buffers` are complete.
 
 ---
 * [Introduction](#introduction)
