@@ -1,0 +1,22 @@
+--- a/06_swap_chain_creation.rs
++++ b/08_graphics_pipeline.rs
+@@ -97,6 +97,8 @@ impl HelloTriangleApplication {
+         let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
+             &device, &graphics_queue, &present_queue);
+ 
++        Self::create_graphics_pipeline(&device);
++
+         Self {
+             instance,
+             debug_callback,
+@@ -289,6 +291,10 @@ impl HelloTriangleApplication {
+         (swap_chain, images)
+     }
+ 
++    fn create_graphics_pipeline(_device: &Arc<Device>) {
++
++    }
++
+     fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
+         let mut indices = QueueFamilyIndices::new();
+         // TODO: replace index with id to simplify?
