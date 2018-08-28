@@ -19,8 +19,7 @@
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
  
--// #[allow(unused)]
-+#[allow(unused)]
+ #[allow(unused)]
  struct HelloTriangleApplication {
 +    instance: Arc<Instance>,
      events_loop: EventsLoop,
@@ -70,14 +69,12 @@
      fn main_loop(&mut self) {
          loop {
              let mut done = false;
-@@ -46,6 +77,8 @@ impl HelloTriangleApplication {
+@@ -46,6 +77,6 @@ impl HelloTriangleApplication {
  }
  
  fn main() {
 -    let mut app = HelloTriangleApplication::initialize();
 -    app.main_loop();
 +    let mut _app = HelloTriangleApplication::initialize();
-+    // We'll leave this and the main loop commented out until we actually
-+    // have something to show on screen.
 +    // app.main_loop();
  }

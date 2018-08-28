@@ -40,7 +40,7 @@
      }
  }
  
-@@ -49,47 +55,41 @@ struct HelloTriangleApplication {
+@@ -49,46 +55,40 @@ struct HelloTriangleApplication {
      debug_callback: Option<DebugCallback>,
  
      events_loop: EventsLoop,
@@ -83,21 +83,19 @@
          }
      }
  
--fn init_window() -> EventsLoop {
--    let events_loop = EventsLoop::new();
--    let _window_builder = WindowBuilder::new()
--        .with_title("Vulkan")
--        .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
--        // .build(&self.events_loop.as_ref().unwrap());
--    events_loop
--}
+-    fn init_window() -> EventsLoop {
+-        let events_loop = EventsLoop::new();
+-        let _window_builder = WindowBuilder::new()
+-            .with_title("Vulkan")
+-            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
+-            // .build(&self.events_loop.as_ref().unwrap());
+-        events_loop
+-    }
 -
--fn create_instance() -> Arc<Instance> {
-+    fn create_instance() -> Arc<Instance> {
+     fn create_instance() -> Arc<Instance> {
          if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
              println!("Validation layers requested, but not available!")
-         }
-@@ -149,18 +149,18 @@ fn create_instance() -> Arc<Instance> {
+@@ -149,18 +149,18 @@ impl HelloTriangleApplication {
          }).ok()
      }
  
@@ -121,7 +119,7 @@
          let mut indices = QueueFamilyIndices::new();
          // TODO: replace index with id to simplify?
          for (i, queue_family) in device.queue_families().enumerate() {
-@@ -168,6 +168,10 @@ fn create_instance() -> Arc<Instance> {
+@@ -168,6 +168,10 @@ impl HelloTriangleApplication {
                  indices.graphics_family = i as i32;
              }
  
@@ -132,7 +130,7 @@
              if indices.is_complete() {
                  break;
              }
-@@ -178,27 +182,43 @@ fn create_instance() -> Arc<Instance> {
+@@ -178,27 +182,43 @@ impl HelloTriangleApplication {
  
      fn create_logical_device(
          instance: &Arc<Instance>,
@@ -183,11 +181,3 @@
      }
  
      #[allow(unused)]
-@@ -220,7 +240,5 @@ fn create_instance() -> Arc<Instance> {
- 
- fn main() {
-     let mut _app = HelloTriangleApplication::initialize();
--    // We'll leave this and the main loop commented out until we actually
--    // have something to show on screen.
-     // app.main_loop();
- }
