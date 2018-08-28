@@ -19,7 +19,8 @@
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
  
- #[allow(unused)]
+-// #[allow(unused)]
++#[allow(unused)]
  struct HelloTriangleApplication {
 +    instance: Arc<Instance>,
      events_loop: EventsLoop,
@@ -36,23 +37,19 @@
          }
      }
  
--    fn init_window() -> EventsLoop {
--        let events_loop = EventsLoop::new();
+     fn init_window() -> EventsLoop {
+         let events_loop = EventsLoop::new();
 -        let _window = WindowBuilder::new()
--            .with_title("Vulkan")
++        let _window_builder = WindowBuilder::new()
+             .with_title("Vulkan")
 -            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)))
 -            .build(&events_loop);
--        events_loop
-+fn init_window() -> EventsLoop {
-+    let events_loop = EventsLoop::new();
-+    let _window_builder = WindowBuilder::new()
-+        .with_title("Vulkan")
-+        .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
-+        // .build(&self.events_loop.as_ref().unwrap());
-+    events_loop
-+}
-+
-+fn create_instance() -> Arc<Instance> {
++            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
++            // .build(&self.events_loop.as_ref().unwrap());
+         events_loop
+     }
+ 
++    fn create_instance() -> Arc<Instance> {
 +        let supported_extensions = InstanceExtensions::supported_by_core()
 +            .expect("failed to retrieve supported extensions");
 +        println!("Supported extensions: {:?}", supported_extensions);
@@ -67,8 +64,8 @@
 +        let required_extensions = vulkano_win::required_extensions();
 +        Instance::new(Some(&app_info), &required_extensions, None)
 +            .expect("failed to create Vulkan instance")
-     }
- 
++    }
++
 +    #[allow(unused)]
      fn main_loop(&mut self) {
          loop {
