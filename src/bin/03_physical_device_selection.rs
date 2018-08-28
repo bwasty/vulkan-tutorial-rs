@@ -185,7 +185,5 @@ impl HelloTriangleApplication {
 
 fn main() {
     let mut _app = HelloTriangleApplication::initialize();
-    // We'll leave this and the main loop commented out until we actually
-    // have something to show on screen.
     // app.main_loop();
 }
