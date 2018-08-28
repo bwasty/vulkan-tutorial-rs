@@ -34,7 +34,11 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
       * [Command buffers](#command-buffers)
       * [Rendering and presentation](#rendering-and-presentation)
    * [Swapchain recreation](#swapchain-recreation)
-* [Vertex buffers (<em>TODO</em>)](#vertex-buffers-todo)
+* [Vertex buffers](#vertex-buffers)
+    * [Vertex input description](#vertex-input-description)
+    * [Vertex buffer creation](#vertex-buffer-creation)
+    * [Staging buffer](#staging-buffer)
+    * [Index buffer](#index-buffer)
 * [Uniform buffers (<em>TODO</em>)](#uniform-buffers-todo)
 * [Texture mapping (<em>TODO</em>)](#texture-mapping-todo)
 * [Depth buffering (<em>TODO</em>)](#depth-buffering-todo)
@@ -303,7 +307,31 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation
 
 [Diff](src/bin/16_swap_chain_recreation.rs.diff) / [Complete code](src/bin/16_swap_chain_recreation.rs)
 
-## Vertex buffers (*TODO*)
+## Vertex buffers
+### Vertex input description
+https://vulkan-tutorial.com/Vertex_buffers/Vertex_input_description
+
+[Vertex shader diff](src/bin/17_shader_vertexbuffer.vert.diff) / [Vertex shader](src/bin/17_shader_vertexbuffer.vert)
+
+(Rust code combined with next section, since this alone won't compile)
+
+### Vertex buffer creation
+https://vulkan-tutorial.com/Vertex_buffers/Vertex_buffer_creation
+
+[Diff](src/bin/18_vertex_buffer.rs.diff) / [Complete code](src/bin/18_vertex_buffer.rs)
+
+### Staging buffer
+https://vulkan-tutorial.com/Vertex_buffers/Staging_buffer
+
+We're just replacing `CpuAccessibleBuffer` with `ImmutableBuffer`, which uses a staging buffer internally. See [`vulkano::buffer`](https://docs.rs/vulkano/0.10.0/vulkano/buffer/index.html) for an overview of Vulkano's buffer types.
+
+[Diff](src/bin/19_staging_buffer.rs.diff) / [Complete code](src/bin/19_staging_buffer.rs)
+
+### Index buffer
+https://vulkan-tutorial.com/Vertex_buffers/Index_buffer
+
+[Diff](src/bin/20_index_buffer.rs.diff) / [Complete code](src/bin/20_index_buffer.rs)
+
 ## Uniform buffers (*TODO*)
 ## Texture mapping (*TODO*)
 ## Depth buffering (*TODO*)
