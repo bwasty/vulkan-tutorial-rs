@@ -13,4 +13,4 @@ winit = "0.17.1"
 
 [[bin]]
 name = "main"
-path = "src/bin/11_render_passes.rs"
+path = "src/bin/05_window_surface.rs"

@@ -32,35 +32,46 @@
  #[cfg(all(debug_assertions))]
  const ENABLE_VALIDATION_LAYERS: bool = true;
  #[cfg(not(debug_assertions))]
-@@ -61,6 +78,11 @@ struct HelloTriangleApplication {
-     graphics_queue: Option<Arc<Queue>>,
-     present_queue: Option<Arc<Queue>>,
+@@ -62,6 +79,9 @@ struct HelloTriangleApplication {
  
-+    swap_chain: Option<Arc<Swapchain<winit::Window>>>,
-+    swap_chain_images: Option<Vec<Arc<SwapchainImage<winit::Window>>>>,
-+    swap_chain_image_format: Option<Format>,
-+    swap_chain_extent: Option<[u32; 2]>,
+     graphics_queue: Arc<Queue>,
+     present_queue: Arc<Queue>,
 +
-     events_loop: Option<winit::EventsLoop>,
++    swap_chain: Arc<Swapchain<Window>>,
++    swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
  }
  
-@@ -80,6 +102,7 @@ impl HelloTriangleApplication {
-         self.create_surface();
-         self.pick_physical_device();
-         self.create_logical_device();
-+        self.create_swap_chain();
+ impl HelloTriangleApplication {
+@@ -74,6 +94,9 @@ impl HelloTriangleApplication {
+         let (device, graphics_queue, present_queue) = Self::create_logical_device(
+             &instance, &surface, physical_device_index);
+ 
++        let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
++            &device, &graphics_queue, &present_queue);
++
+         Self {
+             instance,
+             debug_callback,
+@@ -86,6 +109,9 @@ impl HelloTriangleApplication {
+ 
+             graphics_queue,
+             present_queue,
++
++            swap_chain,
++            swap_chain_images,
+         }
      }
  
-     fn create_instance(&mut self) {
-@@ -153,7 +176,111 @@ impl HelloTriangleApplication {
+@@ -157,7 +183,110 @@ impl HelloTriangleApplication {
  
-     fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
-         let indices = self.find_queue_families(device);
+     fn is_device_suitable(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> bool {
+         let indices = Self::find_queue_families(surface, device);
 -        indices.is_complete()
 +        let extensions_supported = Self::check_device_extension_support(device);
 +
 +        let swap_chain_adequate = if extensions_supported {
-+                let capabilities = self.query_swap_chain_support(device);
++                let capabilities = surface.capabilities(*device)
++                    .expect("failed to get surface capabilities");
 +                !capabilities.supported_formats.is_empty() &&
 +                    capabilities.present_modes.iter().next().is_some()
 +            } else {
@@ -74,11 +85,6 @@
 +        let available_extensions = DeviceExtensions::supported_by_device(*device);
 +        let device_extensions = device_extensions();
 +        available_extensions.intersection(&device_extensions) == device_extensions
-+    }
-+
-+    fn query_swap_chain_support(&self, device: &PhysicalDevice) -> Capabilities {
-+        self.surface.as_ref().unwrap().capabilities(*device)
-+            .expect("failed to get surface capabilities")
 +    }
 +
 +    fn choose_swap_surface_format(available_formats: &[(Format, ColorSpace)]) -> (Format, ColorSpace) {
@@ -101,7 +107,7 @@
 +        }
 +    }
 +
-+    fn choose_swap_extent(&self, capabilities: &Capabilities) -> [u32; 2] {
++    fn choose_swap_extent(capabilities: &Capabilities) -> [u32; 2] {
 +        if let Some(current_extent) = capabilities.current_extent {
 +            return current_extent
 +        } else {
@@ -114,15 +120,21 @@
 +        }
 +    }
 +
-+    fn create_swap_chain(&mut self) {
-+        let instance = self.instance.as_ref().unwrap();
-+        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
-+
-+        let capabilities = self.query_swap_chain_support(&physical_device);
++    fn create_swap_chain(
++        instance: &Arc<Instance>,
++        surface: &Arc<Surface<Window>>,
++        physical_device_index: usize,
++        device: &Arc<Device>,
++        graphics_queue: &Arc<Queue>,
++        present_queue: &Arc<Queue>,
++    ) -> (Arc<Swapchain<Window>>, Vec<Arc<SwapchainImage<Window>>>) {
++        let physical_device = PhysicalDevice::from_index(&instance, physical_device_index).unwrap();
++        let capabilities = surface.capabilities(physical_device)
++            .expect("failed to get surface capabilities");
 +
 +        let surface_format = Self::choose_swap_surface_format(&capabilities.supported_formats);
 +        let present_mode = Self::choose_swap_present_mode(capabilities.present_modes);
-+        let extent = self.choose_swap_extent(&capabilities);
++        let extent = Self::choose_swap_extent(&capabilities);
 +
 +        let mut image_count = capabilities.min_image_count + 1;
 +        if capabilities.max_image_count.is_some() && image_count > capabilities.max_image_count.unwrap() {
@@ -134,17 +146,17 @@
 +            .. ImageUsage::none()
 +        };
 +
-+        let indices = self.find_queue_families(&physical_device);
++        let indices = Self::find_queue_families(&surface, &physical_device);
 +
 +        let sharing: SharingMode = if indices.graphics_family != indices.present_family {
-+            vec![self.graphics_queue.as_ref().unwrap(), self.present_queue.as_ref().unwrap()].as_slice().into()
++            vec![graphics_queue, present_queue].as_slice().into()
 +        } else {
-+            self.graphics_queue.as_ref().unwrap().into()
++            graphics_queue.into()
 +        };
 +
 +        let (swap_chain, images) = Swapchain::new(
-+            self.device.as_ref().unwrap().clone(),
-+            self.surface.as_ref().unwrap().clone(),
++            device.clone(),
++            surface.clone(),
 +            image_count,
 +            surface_format.0, // TODO: color space?
 +            extent,
@@ -155,17 +167,14 @@
 +            CompositeAlpha::Opaque,
 +            present_mode,
 +            true, // clipped
-+            None, // old_swapchain
++            None,
 +        ).expect("failed to create swap chain!");
 +
-+        self.swap_chain = Some(swap_chain);
-+        self.swap_chain_images = Some(images);
-+        self.swap_chain_image_format = Some(surface_format.0);
-+        self.swap_chain_extent = Some(extent);
++        (swap_chain, images)
      }
  
-     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
-@@ -196,7 +323,7 @@ impl HelloTriangleApplication {
+     fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
+@@ -202,7 +331,7 @@ impl HelloTriangleApplication {
          // for us internally.
  
          let (device, mut queues) = Device::new(physical_device, &Features::none(),
@@ -173,4 +182,4 @@
 +            &device_extensions(), queue_families)
              .expect("failed to create logical device!");
  
-         self.device = Some(device);
+         let graphics_queue = queues.next().unwrap();
