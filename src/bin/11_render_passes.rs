@@ -111,7 +111,7 @@ impl HelloTriangleApplication {
             &device, &graphics_queue, &present_queue);
 
         let render_pass = Self::create_render_pass(&device, swap_chain.format());
-        Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
+        Self::create_graphics_pipeline(&device, swap_chain.dimensions());
 
         Self {
             instance,
