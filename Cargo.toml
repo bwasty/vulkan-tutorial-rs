@@ -13,4 +13,4 @@ winit = "0.17.1"
 
 [[bin]]
 name = "main"
-path = "src/bin/15_hello_triangle.rs"
+path = "src/bin/14_command_buffers.rs"
