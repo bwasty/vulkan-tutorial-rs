@@ -32,7 +32,7 @@
      }
  }
  
--type ConcreteGraphicsPipeline = Arc<GraphicsPipeline<BufferlessDefinition, Box<PipelineLayoutAbstract + Send + Sync + 'static>, Arc<RenderPassAbstract + Send + Sync + 'static>>>;
+-type ConcreteGraphicsPipeline = GraphicsPipeline<BufferlessDefinition, Box<PipelineLayoutAbstract + Send + Sync + 'static>, Arc<RenderPassAbstract + Send + Sync + 'static>>;
 +#[derive(Copy, Clone)]
 +struct Vertex {
 +    pos: [f32; 2],
@@ -53,36 +53,58 @@
 +    ]
 +}
  
- #[derive(Default)]
  struct HelloTriangleApplication {
-@@ -109,16 +130,11 @@ struct HelloTriangleApplication {
-     swap_chain_extent: Option<[u32; 2]>,
+     instance: Arc<Instance>,
+@@ -109,14 +130,11 @@ struct HelloTriangleApplication {
+     swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
  
-     render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
+     render_pass: Arc<RenderPassAbstract + Send + Sync>,
 -    // NOTE: We need to the full type of
 -    // self.graphics_pipeline, because `BufferlessVertices` only
 -    // works when the concrete type of the graphics pipeline is visible
 -    // to the command buffer.
--    // TODO: check if can be simplified later in tutorial
--    // graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
--    graphics_pipeline: Option<ConcreteGraphicsPipeline>,
-+    graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
+-    graphics_pipeline: Arc<ConcreteGraphicsPipeline>,
++    graphics_pipeline: Arc<GraphicsPipelineAbstract + Send + Sync>,
  
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
  
-+    vertex_buffer: Option<Arc<BufferAccess + Send + Sync>>,
++    vertex_buffer: Arc<BufferAccess + Send + Sync>,
      command_buffers: Vec<Arc<AutoCommandBuffer>>,
  
      previous_frame_end: Option<Box<GpuFuture>>,
-@@ -147,6 +163,7 @@ impl HelloTriangleApplication {
-         self.create_render_pass();
-         self.create_graphics_pipeline();
-         self.create_framebuffers();
-+        self.create_vertex_buffer();
-         self.create_command_buffers();
-         self.create_sync_objects();
+@@ -141,6 +159,8 @@ impl HelloTriangleApplication {
+ 
+         let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
+ 
++        let vertex_buffer = Self::create_vertex_buffer(&device);
++
+         let previous_frame_end = Some(Self::create_sync_objects(&device));
+ 
+         let mut app = Self {
+@@ -164,6 +184,7 @@ impl HelloTriangleApplication {
+ 
+             swap_chain_framebuffers,
+ 
++            vertex_buffer,
+             command_buffers: vec![],
+ 
+             previous_frame_end,
+@@ -198,7 +219,7 @@ impl HelloTriangleApplication {
+             } else {
+                 Instance::new(Some(&app_info), &required_extensions, None)
+                     .expect("failed to create Vulkan instance")
+-    }
++        }
      }
-@@ -351,7 +368,7 @@ impl HelloTriangleApplication {
+ 
+     fn check_validation_layer_support() -> bool {
+@@ -370,12 +391,12 @@ impl HelloTriangleApplication {
+         device: &Arc<Device>,
+         swap_chain_extent: [u32; 2],
+         render_pass: &Arc<RenderPassAbstract + Send + Sync>,
+-    ) -> Arc<ConcreteGraphicsPipeline> {
++    ) -> Arc<GraphicsPipelineAbstract + Send + Sync> {
+         #[allow(unused)]
          mod vertex_shader {
              #[derive(VulkanoShader)]
              #[ty = "vertex"]
@@ -91,7 +113,7 @@
              struct Dummy;
          }
  
-@@ -359,7 +376,7 @@ impl HelloTriangleApplication {
+@@ -383,7 +404,7 @@ impl HelloTriangleApplication {
          mod fragment_shader {
              #[derive(VulkanoShader)]
              #[ty = "fragment"]
@@ -100,37 +122,36 @@
              struct Dummy;
          }
  
-@@ -378,7 +395,7 @@ impl HelloTriangleApplication {
+@@ -400,7 +421,7 @@ impl HelloTriangleApplication {
          };
  
-         self.graphics_pipeline = Some(Arc::new(GraphicsPipeline::start()
+         Arc::new(GraphicsPipeline::start()
 -            .vertex_input(BufferlessDefinition {})
 +            .vertex_input_single_buffer::<Vertex>()
              .vertex_shader(vert_shader_module.main_entry_point(), ())
              .triangle_list()
              .primitive_restart(false)
-@@ -409,18 +426,22 @@ impl HelloTriangleApplication {
-         ).collect::<Vec<_>>();
+@@ -434,17 +455,21 @@ impl HelloTriangleApplication {
+         ).collect::<Vec<_>>()
      }
  
-+    fn create_vertex_buffer(&mut self) {
-+        self.vertex_buffer = Some(CpuAccessibleBuffer::from_iter(self.device().clone(),
-+            BufferUsage::vertex_buffer(), vertices().iter().cloned()).unwrap());
++    fn create_vertex_buffer(device: &Arc<Device>) -> Arc<BufferAccess + Send + Sync> {
++        CpuAccessibleBuffer::from_iter(device.clone(),
++            BufferUsage::vertex_buffer(), vertices().iter().cloned()).unwrap()
 +    }
 +
      fn create_command_buffers(&mut self) {
-         let queue_family = self.graphics_queue.as_ref().unwrap().family();
-         let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
+         let queue_family = self.graphics_queue.family();
          self.command_buffers = self.swap_chain_framebuffers.iter()
              .map(|framebuffer| {
 -                let vertices = BufferlessVertices { vertices: 3, instances: 1 };
-                 Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
+                 Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device.clone(), queue_family)
                      .unwrap()
                      .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                      .unwrap()
-                     .draw(graphics_pipeline.clone(), &DynamicState::none(),
+                     .draw(self.graphics_pipeline.clone(), &DynamicState::none(),
 -                        vertices, (), ())
-+                        vec![self.vertex_buffer.as_ref().unwrap().clone()], (), ())
++                        vec![self.vertex_buffer.clone()], (), ())
                      .unwrap()
                      .end_render_pass()
                      .unwrap()
