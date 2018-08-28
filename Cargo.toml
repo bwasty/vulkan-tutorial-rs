@@ -2,6 +2,7 @@
 name = "vulkan-tutorial-rs"
 version = "0.1.0"
 authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
+autobins = true
 
 [dependencies]
 vulkano = "0.10.0"
@@ -12,3 +13,4 @@ winit = "0.17.1"
 
 # [[bin]]
 # name = "main"
+# path = "src/bin/00_base_code.rs"

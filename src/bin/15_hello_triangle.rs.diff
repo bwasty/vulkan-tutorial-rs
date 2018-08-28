@@ -1,0 +1,51 @@
+--- a/14_command_buffers.rs
++++ b/15_hello_triangle.rs
+@@ -30,10 +30,11 @@ use vulkano::swapchain::{
+     PresentMode,
+     Swapchain,
+     CompositeAlpha,
++    acquire_next_image,
+ };
+ use vulkano::format::Format;
+ use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
+-use vulkano::sync::SharingMode;
++use vulkano::sync::{SharingMode, GpuFuture};
+ use vulkano::pipeline::{
+     GraphicsPipeline,
+     vertex::BufferlessDefinition,
+@@ -507,6 +508,8 @@ impl HelloTriangleApplication {
+     #[allow(unused)]
+     fn main_loop(&mut self) {
+         loop {
++            self.draw_frame();
++
+             let mut done = false;
+             self.events_loop.poll_events(|ev| {
+                 match ev {
+@@ -519,9 +522,24 @@ impl HelloTriangleApplication {
+             }
+         }
+     }
++
++    fn draw_frame(&mut self) {
++        let (image_index, acquire_future) = acquire_next_image(self.swap_chain.clone(), None).unwrap();
++
++        let command_buffer = self.command_buffers[image_index].clone();
++
++        let future = acquire_future
++            .then_execute(self.graphics_queue.clone(), command_buffer)
++            .unwrap()
++            .then_swapchain_present(self.present_queue.clone(), self.swap_chain.clone(), image_index)
++            .then_signal_fence_and_flush()
++            .unwrap();
++
++        future.wait(None).unwrap();
++    }
+ }
+ 
+ fn main() {
+-    let mut _app = HelloTriangleApplication::initialize();
+-    // app.main_loop();
++    let mut app = HelloTriangleApplication::initialize();
++    app.main_loop();
+ }

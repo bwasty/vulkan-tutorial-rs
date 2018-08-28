@@ -1,0 +1,37 @@
+--- a/18_vertex_buffer.rs
++++ b/19_staging_buffer.rs
+@@ -53,7 +53,7 @@ use vulkano::command_buffer::{
+     DynamicState,
+ };
+ use vulkano::buffer::{
+-    cpu_access::CpuAccessibleBuffer,
++    immutable::ImmutableBuffer,
+     BufferUsage,
+     BufferAccess,
+ };
+@@ -159,7 +159,7 @@ impl HelloTriangleApplication {
+ 
+         let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
+ 
+-        let vertex_buffer = Self::create_vertex_buffer(&device);
++        let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
+ 
+         let previous_frame_end = Some(Self::create_sync_objects(&device));
+ 
+@@ -455,9 +455,13 @@ impl HelloTriangleApplication {
+         ).collect::<Vec<_>>()
+     }
+ 
+-    fn create_vertex_buffer(device: &Arc<Device>) -> Arc<BufferAccess + Send + Sync> {
+-        CpuAccessibleBuffer::from_iter(device.clone(),
+-            BufferUsage::vertex_buffer(), vertices().iter().cloned()).unwrap()
++    fn create_vertex_buffer(graphics_queue: &Arc<Queue>) -> Arc<BufferAccess + Send + Sync> {
++        let (buffer, future) = ImmutableBuffer::from_iter(
++            vertices().iter().cloned(), BufferUsage::vertex_buffer(),
++            graphics_queue.clone())
++            .unwrap();
++        future.flush().unwrap();
++        buffer
+     }
+ 
+     fn create_command_buffers(&mut self) {

@@ -1,0 +1,69 @@
+--- a/10_fixed_functions.rs
++++ b/11_render_passes.rs
+@@ -1,3 +1,4 @@
++#[macro_use]
+ extern crate vulkano;
+ #[macro_use]
+ extern crate vulkano_shader_derive;
+@@ -38,6 +39,9 @@ use vulkano::pipeline::{
+     vertex::BufferlessDefinition,
+     viewport::Viewport,
+ };
++use vulkano::framebuffer::{
++    RenderPassAbstract,
++};
+ 
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -89,6 +93,8 @@ struct HelloTriangleApplication {
+ 
+     swap_chain: Arc<Swapchain<Window>>,
+     swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
++
++    render_pass: Arc<RenderPassAbstract + Send + Sync>,
+ }
+ 
+ impl HelloTriangleApplication {
+@@ -104,7 +110,8 @@ impl HelloTriangleApplication {
+         let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
+             &device, &graphics_queue, &present_queue);
+ 
+-        Self::create_graphics_pipeline(&device, swap_chain.dimensions());
++        let render_pass = Self::create_render_pass(&device, swap_chain.format());
++        Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
+ 
+         Self {
+             instance,
+@@ -121,6 +128,8 @@ impl HelloTriangleApplication {
+ 
+             swap_chain,
+             swap_chain_images,
++
++            render_pass,
+         }
+     }
+ 
+@@ -298,6 +307,23 @@ impl HelloTriangleApplication {
+         (swap_chain, images)
+     }
+ 
++    fn create_render_pass(device: &Arc<Device>, color_format: Format) -> Arc<RenderPassAbstract + Send + Sync> {
++        Arc::new(single_pass_renderpass!(device.clone(),
++            attachments: {
++                color: {
++                    load: Clear,
++                    store: Store,
++                    format: color_format,
++                    samples: 1,
++                }
++            },
++            pass: {
++                color: [color],
++                depth_stencil: {}
++            }
++        ).unwrap())
++    }
++
+     fn create_graphics_pipeline(
+         device: &Arc<Device>,
+         swap_chain_extent: [u32; 2],

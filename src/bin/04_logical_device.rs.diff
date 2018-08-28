@@ -1,0 +1,74 @@
+--- a/03_physical_device_selection.rs
++++ b/04_logical_device.rs
+@@ -13,8 +13,10 @@ use vulkano::instance::{
+     Version,
+     layers_list,
+     PhysicalDevice,
++    Features
+ };
+ use vulkano::instance::debug::{DebugCallback, MessageTypes};
++use vulkano::device::{Device, DeviceExtensions, Queue};
+ 
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -49,6 +51,9 @@ struct HelloTriangleApplication {
+     events_loop: EventsLoop,
+ 
+     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
++    device: Arc<Device>,
++
++    graphics_queue: Arc<Queue>,
+ }
+ 
+ impl HelloTriangleApplication {
+@@ -59,6 +64,8 @@ impl HelloTriangleApplication {
+         let events_loop = Self::init_window();
+ 
+         let physical_device_index = Self::pick_physical_device(&instance);
++        let (device, graphics_queue) = Self::create_logical_device(
++            &instance, physical_device_index);
+ 
+         Self {
+             instance,
+@@ -67,6 +74,9 @@ impl HelloTriangleApplication {
+             events_loop,
+ 
+             physical_device_index,
++            device,
++
++            graphics_queue,
+         }
+     }
+ 
+@@ -166,6 +176,31 @@ impl HelloTriangleApplication {
+         indices
+     }
+ 
++    fn create_logical_device(
++        instance: &Arc<Instance>,
++        physical_device_index: usize,
++    ) -> (Arc<Device>, Arc<Queue>) {
++        let physical_device = PhysicalDevice::from_index(&instance, physical_device_index).unwrap();
++        let indices = Self::find_queue_families(&physical_device);
++
++        let queue_family = physical_device.queue_families()
++            .nth(indices.graphics_family as usize).unwrap();
++
++        let queue_priority = 1.0;
++
++        // NOTE: the tutorial recommends passing the validation layers as well
++        // for legacy reasons (if ENABLE_VALIDATION_LAYERS is true). Vulkano handles that
++        // for us internally.
++
++        let (device, mut queues) = Device::new(physical_device, &Features::none(), &DeviceExtensions::none(),
++            [(queue_family, queue_priority)].iter().cloned())
++            .expect("failed to create logical device!");
++
++        let graphics_queue = queues.next().unwrap();
++
++        (device, graphics_queue)
++    }
++
+     #[allow(unused)]
+     fn main_loop(&mut self) {
+         loop {
