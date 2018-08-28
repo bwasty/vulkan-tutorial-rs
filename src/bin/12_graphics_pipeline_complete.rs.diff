@@ -14,50 +14,69 @@
      }
  }
  
-+type ConcreteGraphicsPipeline = Arc<GraphicsPipeline<BufferlessDefinition, Box<PipelineLayoutAbstract + Send + Sync + 'static>, Arc<RenderPassAbstract + Send + Sync + 'static>>>;
++type ConcreteGraphicsPipeline = GraphicsPipeline<BufferlessDefinition, Box<PipelineLayoutAbstract + Send + Sync + 'static>, Arc<RenderPassAbstract + Send + Sync + 'static>>;
 +
- #[derive(Default)]
+ #[allow(unused)]
  struct HelloTriangleApplication {
-     instance: Option<Arc<Instance>>,
-@@ -95,6 +99,13 @@ struct HelloTriangleApplication {
-     swap_chain_extent: Option<[u32; 2]>,
+     instance: Arc<Instance>,
+@@ -95,6 +99,11 @@ struct HelloTriangleApplication {
+     swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
  
-     render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
+     render_pass: Arc<RenderPassAbstract + Send + Sync>,
 +    // NOTE: We need to the full type of
 +    // self.graphics_pipeline, because `BufferlessVertices` only
 +    // works when the concrete type of the graphics pipeline is visible
 +    // to the command buffer.
-+    // TODO: check if can be simplified later in tutorial
-+    // graphics_pipeline: Option<Arc<GraphicsPipelineAbstract + Send + Sync>>,
-+    graphics_pipeline: Option<ConcreteGraphicsPipeline>,
- 
-     events_loop: Option<winit::EventsLoop>,
++    graphics_pipeline: Arc<ConcreteGraphicsPipeline>,
  }
-@@ -346,12 +357,13 @@ impl HelloTriangleApplication {
+ 
+ impl HelloTriangleApplication {
+@@ -111,7 +120,7 @@ impl HelloTriangleApplication {
+             &device, &graphics_queue, &present_queue);
+ 
+         let render_pass = Self::create_render_pass(&device, swap_chain.format());
+-        Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
++        let graphics_pipeline = Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
+ 
+         Self {
+             instance,
+@@ -130,6 +139,7 @@ impl HelloTriangleApplication {
+             swap_chain_images,
+ 
+             render_pass,
++            graphics_pipeline,
+         }
+     }
+ 
+@@ -327,8 +337,8 @@ impl HelloTriangleApplication {
+     fn create_graphics_pipeline(
+         device: &Arc<Device>,
+         swap_chain_extent: [u32; 2],
+-        _render_pass: &Arc<RenderPassAbstract + Send + Sync>,
+-    ) {
++        render_pass: &Arc<RenderPassAbstract + Send + Sync>,
++    ) -> Arc<ConcreteGraphicsPipeline> {
+         #[allow(unused)]
+         mod vertex_shader {
+             #[derive(VulkanoShader)]
+@@ -357,7 +367,7 @@ impl HelloTriangleApplication {
              depth_range: 0.0 .. 1.0,
          };
  
 -        let _pipeline_builder = Arc::new(GraphicsPipeline::start()
-+        self.graphics_pipeline = Some(Arc::new(GraphicsPipeline::start()
++        Arc::new(GraphicsPipeline::start()
              .vertex_input(BufferlessDefinition {})
              .vertex_shader(vert_shader_module.main_entry_point(), ())
              .triangle_list()
-             .primitive_restart(false)
-             .viewports(vec![viewport]) // NOTE: also sets scissor to cover whole viewport
-+            .fragment_shader(frag_shader_module.main_entry_point(), ())
-             .depth_clamp(false)
-             // NOTE: there's an outcommented .rasterizer_discard() in Vulkano...
-             .polygon_mode_fill() // = default
-@@ -360,8 +372,10 @@ impl HelloTriangleApplication {
+@@ -372,7 +382,10 @@ impl HelloTriangleApplication {
              .front_face_clockwise()
              // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
              .blend_pass_through() // = default
--            .fragment_shader(frag_shader_module.main_entry_point(), ())
 -        );
-+            .render_pass(Subpass::from(self.render_pass.as_ref().unwrap().clone(), 0).unwrap())
++            .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
 +            .build(device.clone())
 +            .unwrap()
-+        ));
++        )
      }
  
-     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+     fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
