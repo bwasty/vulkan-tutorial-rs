@@ -186,15 +186,15 @@ struct HelloTriangleApplication {
 }
 ```
 ```rust
-     pub fn initialize() -> Self {
+    pub fn initialize() -> Self {
         let instance = Self::create_instance();
-         let events_loop = Self::init_window();
+        let events_loop = Self::init_window();
 
-         Self {
+        Self {
             instance,
-             events_loop,
-         }
-     }
+            events_loop,
+        }
+    }
 ```
 ```rust
     fn create_instance() -> Arc<Instance> {
@@ -220,41 +220,31 @@ struct HelloTriangleApplication {
 #### Validation layers
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers
 
-[Diff](src/bin/02_validation_layers.rs.diff)
-
-[Complete code](src/bin/02_validation_layers.rs)
+[Diff](src/bin/02_validation_layers.rs.diff) / [Complete code](src/bin/02_validation_layers.rs)
 
 
 #### Physical devices and queue families
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Physical_devices_and_queue_families
 
-[Diff](src/bin/03_physical_device_selection.rs.diff)
-
-[Complete code](src/bin/03_physical_device_selection.rs)
+[Diff](src/bin/03_physical_device_selection.rs.diff) / [Complete code](src/bin/03_physical_device_selection.rs)
 
 
 #### Logical device and queues
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Logical_device_and_queues
 
-[Diff](src/bin/04_logical_device.rs.diff)
-
-[Complete code](src/bin/04_logical_device.rs)
+[Diff](src/bin/04_logical_device.rs.diff) / [Complete code](src/bin/04_logical_device.rs)
 
 ### Presentation
 
 #### Window surface
 https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Window_surface
 
-[Diff](src/bin/05_window_surface.rs.diff)
-
-[Complete code](src/bin/05_window_surface.rs)
+[Diff](src/bin/05_window_surface.rs.diff) / [Complete code](src/bin/05_window_surface.rs)
 
 #### Swap chain
 https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Swap_chain
 
-[Diff](src/bin/06_swap_chain_creation.rs.diff)
-
-[Complete code](src/bin/06_swap_chain_creation.rs)
+[Diff](src/bin/06_swap_chain_creation.rs.diff) / [Complete code](src/bin/06_swap_chain_creation.rs)
 
 #### Image views
 https://vulkan-tutorial.com/Drawing_a_triangle/Presentation/Image_views
@@ -265,71 +255,53 @@ We're skipping this section because image views are handled by Vulkano and can b
 #### Introduction
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics
 
-[Diff](src/bin/08_graphics_pipeline.rs.diff)
-
-[Complete code](src/bin/08_graphics_pipeline.rs)
+[Diff](src/bin/08_graphics_pipeline.rs.diff) / [Complete code](src/bin/08_graphics_pipeline.rs)
 
 #### Shader Modules
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Shader_modules
 
 Instead of compiling the shaders to SPIR-V manually and loading them at runtime, we'll use [vulkano-shader-derive](https://docs.rs/crate/vulkano-shader-derive/) to do the same at compile-time. Loading them at runtime is also possible, but a bit more invovled - see the [runtime shaders](https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/runtime-shader.rs) example of Vulkano.
 
-[Diff](src/bin/09_shader_modules.rs.diff)
-
-[Rust code](src/bin/09_shader_modules.rs) / [Vertex shader](src/bin/09_shader_base.vert) / [Fragment shader](src/bin/09_shader_base.frag)
+[Diff](src/bin/09_shader_modules.rs.diff) / [Rust code](src/bin/09_shader_modules.rs) / [Vertex shader](src/bin/09_shader_base.vert) / [Fragment shader](src/bin/09_shader_base.frag)
 
 #### Fixed functions
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Fixed_functions
 
-[Diff](src/bin/10_fixed_functions.rs.diff)
-
-[Complete code](src/bin/10_fixed_functions.rs)
+[Diff](src/bin/10_fixed_functions.rs.diff) / [Complete code](src/bin/10_fixed_functions.rs)
 
 #### Render passes
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Render_passes
 
-[Diff](src/bin/11_render_passes.rs.diff)
-
-[Complete code](src/bin/11_render_passes.rs)
+[Diff](src/bin/11_render_passes.rs.diff) / [Complete code](src/bin/11_render_passes.rs)
 
 #### Conclusion
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Conclusion
 
-[Diff](src/bin/12_graphics_pipeline_complete.rs.diff)
-
-[Complete code](src/bin/12_graphics_pipeline_complete.rs)
+[Diff](src/bin/12_graphics_pipeline_complete.rs.diff) / [Complete code](src/bin/12_graphics_pipeline_complete.rs)
 
 
 ### Drawing
 #### Framebuffers
 https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Framebuffers
 
-[Diff](src/bin/13_framebuffers.rs.diff)
-
-[Complete code](src/bin/13_framebuffers.rs)
+[Diff](src/bin/13_framebuffers.rs.diff) / [Complete code](src/bin/13_framebuffers.rs)
 
 #### Command buffers
 https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Command_buffers
 
 We're skipping the first part because Vulkano maintains a [`StandardCommandPool`](https://docs.rs/vulkano/0.10.0/vulkano/command_buffer/pool/standard/struct.StandardCommandPool.html).
 
-[Diff](src/bin/14_command_buffers.rs.diff)
-
-[Complete code](src/bin/14_command_buffers.rs)
+[Diff](src/bin/14_command_buffers.rs.diff) / [Complete code](src/bin/14_command_buffers.rs)
 
 #### Rendering and presentation
 https://vulkan-tutorial.com/Drawing_a_triangle/Drawing/Rendering_and_presentation
 
-[Diff](src/bin/15_hello_triangle.rs.diff)
-
-[Complete code](src/bin/15_hello_triangle.rs)
+[Diff](src/bin/15_hello_triangle.rs.diff) / [Complete code](src/bin/15_hello_triangle.rs)
 
 ### Swapchain recreation
 https://vulkan-tutorial.com/Drawing_a_triangle/Swap_chain_recreation
 
-[Diff](src/bin/16_swap_chain_recreation.rs.diff)
-
-[Complete code](src/bin/16_swap_chain_recreation.rs)
+[Diff](src/bin/16_swap_chain_recreation.rs.diff) / [Complete code](src/bin/16_swap_chain_recreation.rs)
 
 ## Vertex buffers (*TODO*)
 ## Uniform buffers (*TODO*)
