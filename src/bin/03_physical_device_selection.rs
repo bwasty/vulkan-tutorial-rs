@@ -4,7 +4,8 @@ extern crate winit;
 
 use std::sync::Arc;
 
-use winit::{ WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
+use winit::{EventsLoop, WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
+
 use vulkano::instance::{
     Instance,
     InstanceExtensions,
@@ -40,43 +41,45 @@ impl QueueFamilyIndices {
     }
 }
 
-#[derive(Default)]
+#[allow(unused)]
 struct HelloTriangleApplication {
-    instance: Option<Arc<Instance>>,
+    instance: Arc<Instance>,
     debug_callback: Option<DebugCallback>,
-    physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
 
-    events_loop: Option<winit::EventsLoop>,
+    events_loop: EventsLoop,
+
+    physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
 }
 
 impl HelloTriangleApplication {
-    pub fn new() -> Self {
-        Default::default()
+    pub fn initialize() -> Self {
+        let instance = Self::create_instance();
+        let debug_callback = Self::setup_debug_callback(&instance);
+
+        let events_loop = Self::init_window();
+
+        let physical_device_index = Self::pick_physical_device(&instance);
+
+        Self {
+            instance,
+            debug_callback,
+
+            events_loop,
+
+            physical_device_index,
+        }
     }
 
-    pub fn run(&mut self) {
-        self.init_window();
-        self.init_vulkan();
-        // self.main_loop();
-    }
-
-    fn init_window(&mut self) {
-        self.events_loop = Some(winit::EventsLoop::new());
-        // We'll leave this and the main loop commented out until we actually
-        // have something to show on screen.
+    fn init_window() -> EventsLoop {
+        let events_loop = EventsLoop::new();
         let _window_builder = WindowBuilder::new()
             .with_title("Vulkan")
             .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
             // .build(&self.events_loop.as_ref().unwrap());
+        events_loop
     }
 
-    fn init_vulkan(&mut self) {
-        self.create_instance();
-        self.setup_debug_callback();
-        self.pick_physical_device();
-    }
-
-    fn create_instance(&mut self) {
+    fn create_instance() -> Arc<Instance> {
         if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
             println!("Validation layers requested, but not available!")
         }
@@ -94,15 +97,13 @@ impl HelloTriangleApplication {
 
         let required_extensions = Self::get_required_extensions();
 
-        let instance =
-            if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-                Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
-                    .expect("failed to create Vulkan instance")
-            } else {
-                Instance::new(Some(&app_info), &required_extensions, None)
-                    .expect("failed to create Vulkan instance")
-            };
-        self.instance = Some(instance);
+        if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
+            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+                .expect("failed to create Vulkan instance")
+        } else {
+            Instance::new(Some(&app_info), &required_extensions, None)
+                .expect("failed to create Vulkan instance")
+        }
     }
 
     fn check_validation_layer_support() -> bool {
@@ -121,12 +122,11 @@ impl HelloTriangleApplication {
         extensions
     }
 
-    fn setup_debug_callback(&mut self) {
+    fn setup_debug_callback(instance: &Arc<Instance>) -> Option<DebugCallback> {
         if !ENABLE_VALIDATION_LAYERS  {
-            return;
+            return None;
         }
 
-        let instance = self.instance.as_ref().unwrap();
         let msg_types = MessageTypes {
             error: true,
             warning: true,
@@ -134,23 +134,23 @@ impl HelloTriangleApplication {
             information: false,
             debug: true,
         };
-        self.debug_callback = DebugCallback::new(instance, msg_types, |msg| {
+        DebugCallback::new(&instance, msg_types, |msg| {
             println!("validation layer: {:?}", msg.description);
-        }).ok();
+        }).ok()
     }
 
-    fn pick_physical_device(&mut self) {
-        self.physical_device_index = PhysicalDevice::enumerate(&self.instance())
-            .position(|device| self.is_device_suitable(&device))
-            .expect("failed to find a suitable GPU!");
+    fn pick_physical_device(instance: &Arc<Instance>) -> usize {
+        PhysicalDevice::enumerate(&instance)
+            .position(|device| Self::is_device_suitable(&device))
+            .expect("failed to find a suitable GPU!")
     }
 
-    fn is_device_suitable(&self, device: &PhysicalDevice) -> bool {
-        let indices = self.find_queue_families(device);
+    fn is_device_suitable(device: &PhysicalDevice) -> bool {
+        let indices = Self::find_queue_families(device);
         indices.is_complete()
     }
 
-    fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+    fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
         let mut indices = QueueFamilyIndices::new();
         // TODO: replace index with id to simplify?
         for (i, queue_family) in device.queue_families().enumerate() {
@@ -170,7 +170,7 @@ impl HelloTriangleApplication {
     fn main_loop(&mut self) {
         loop {
             let mut done = false;
-            self.events_loop.as_mut().unwrap().poll_events(|ev| {
+            self.events_loop.poll_events(|ev| {
                 match ev {
                     Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
                     _ => ()
@@ -181,13 +181,11 @@ impl HelloTriangleApplication {
             }
         }
     }
-
-    fn instance(&self) -> &Arc<Instance> {
-        self.instance.as_ref().unwrap()
-    }
 }
 
 fn main() {
-    let mut app = HelloTriangleApplication::new();
-    app.run();
+    let mut _app = HelloTriangleApplication::initialize();
+    // We'll leave this and the main loop commented out until we actually
+    // have something to show on screen.
+    // app.main_loop();
 }

@@ -4,7 +4,8 @@ extern crate winit;
 
 use std::sync::Arc;
 
-use winit::{ WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
+use winit::{EventsLoop, WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
+
 use vulkano::instance::{
     Instance,
     InstanceExtensions,
@@ -15,39 +16,33 @@ use vulkano::instance::{
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
-#[derive(Default)]
+#[allow(unused)]
 struct HelloTriangleApplication {
-    instance: Option<Arc<Instance>>,
-
-    events_loop: Option<winit::EventsLoop>,
+    instance: Arc<Instance>,
+    events_loop: EventsLoop,
 }
 
 impl HelloTriangleApplication {
-    pub fn new() -> Self {
-        Default::default()
+    pub fn initialize() -> Self {
+        let instance = Self::create_instance();
+        let events_loop = Self::init_window();
+
+        Self {
+            instance,
+            events_loop,
+        }
     }
 
-    pub fn run(&mut self) {
-        self.init_window();
-        self.init_vulkan();
-        // self.main_loop();
-    }
-
-    fn init_window(&mut self) {
-        self.events_loop = Some(winit::EventsLoop::new());
-        // We'll leave this and the main loop commented out until we actually
-        // have something to show on screen.
+    fn init_window() -> EventsLoop {
+        let events_loop = EventsLoop::new();
         let _window_builder = WindowBuilder::new()
             .with_title("Vulkan")
             .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
             // .build(&self.events_loop.as_ref().unwrap());
+        events_loop
     }
 
-    fn init_vulkan(&mut self) {
-        self.create_instance();
-    }
-
-    fn create_instance(&mut self) {
+    fn create_instance() -> Arc<Instance> {
         let supported_extensions = InstanceExtensions::supported_by_core()
             .expect("failed to retrieve supported extensions");
         println!("Supported extensions: {:?}", supported_extensions);
@@ -60,15 +55,15 @@ impl HelloTriangleApplication {
         };
 
         let required_extensions = vulkano_win::required_extensions();
-        self.instance = Some(Instance::new(Some(&app_info), &required_extensions, None)
-            .expect("failed to create Vulkan instance"))
+        Instance::new(Some(&app_info), &required_extensions, None)
+            .expect("failed to create Vulkan instance")
     }
 
     #[allow(unused)]
     fn main_loop(&mut self) {
         loop {
             let mut done = false;
-            self.events_loop.as_mut().unwrap().poll_events(|ev| {
+            self.events_loop.poll_events(|ev| {
                 match ev {
                     Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
                     _ => ()
@@ -82,6 +77,8 @@ impl HelloTriangleApplication {
 }
 
 fn main() {
-    let mut app = HelloTriangleApplication::new();
-    app.run();
+    let mut _app = HelloTriangleApplication::initialize();
+    // We'll leave this and the main loop commented out until we actually
+    // have something to show on screen.
+    // app.main_loop();
 }
