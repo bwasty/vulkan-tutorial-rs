@@ -327,7 +327,6 @@ impl HelloTriangleApplication {
     fn create_graphics_pipeline(
         device: &Arc<Device>,
         swap_chain_extent: [u32; 2],
-        _render_pass: &Arc<RenderPassAbstract + Send + Sync>,
     ) {
         #[allow(unused)]
         mod vertex_shader {

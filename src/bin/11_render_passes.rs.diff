@@ -15,34 +15,45 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -90,6 +94,8 @@ struct HelloTriangleApplication {
-     swap_chain_image_format: Option<Format>,
-     swap_chain_extent: Option<[u32; 2]>,
+@@ -89,6 +93,8 @@ struct HelloTriangleApplication {
  
-+    render_pass: Option<Arc<RenderPassAbstract + Send + Sync>>,
+     swap_chain: Arc<Swapchain<Window>>,
+     swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
 +
-     events_loop: Option<winit::EventsLoop>,
++    render_pass: Arc<RenderPassAbstract + Send + Sync>,
  }
  
-@@ -110,6 +116,7 @@ impl HelloTriangleApplication {
-         self.pick_physical_device();
-         self.create_logical_device();
-         self.create_swap_chain();
-+        self.create_render_pass();
-         self.create_graphics_pipeline();
+ impl HelloTriangleApplication {
+@@ -104,7 +110,8 @@ impl HelloTriangleApplication {
+         let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
+             &device, &graphics_queue, &present_queue);
+ 
+-        Self::create_graphics_pipeline(&device, swap_chain.dimensions());
++        let render_pass = Self::create_render_pass(&device, swap_chain.format());
++        Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
+ 
+         Self {
+             instance,
+@@ -121,6 +128,8 @@ impl HelloTriangleApplication {
+ 
+             swap_chain,
+             swap_chain_images,
++
++            render_pass,
+         }
      }
  
-@@ -291,6 +298,23 @@ impl HelloTriangleApplication {
-         self.swap_chain_extent = Some(extent);
+@@ -298,6 +307,23 @@ impl HelloTriangleApplication {
+         (swap_chain, images)
      }
  
-+    fn create_render_pass(&mut self) {
-+        self.render_pass = Some(Arc::new(single_pass_renderpass!(self.device().clone(),
++    fn create_render_pass(device: &Arc<Device>, color_format: Format) -> Arc<RenderPassAbstract + Send + Sync> {
++        Arc::new(single_pass_renderpass!(device.clone(),
 +            attachments: {
 +                color: {
 +                    load: Clear,
 +                    store: Store,
-+                    format: self.swap_chain.as_ref().unwrap().format(),
++                    format: color_format,
 +                    samples: 1,
 +                }
 +            },
@@ -50,20 +61,9 @@
 +                color: [color],
 +                depth_stencil: {}
 +            }
-+        ).unwrap()));
++        ).unwrap())
 +    }
 +
-     fn create_graphics_pipeline(&mut self) {
-         #[allow(unused)]
-         mod vertex_shader {
-@@ -421,6 +445,10 @@ impl HelloTriangleApplication {
-     fn instance(&self) -> &Arc<Instance> {
-         self.instance.as_ref().unwrap()
-     }
-+
-+    fn device(&self) -> &Arc<Device> {
-+        self.device.as_ref().unwrap()
-+    }
- }
- 
- fn main() {
+     fn create_graphics_pipeline(
+         device: &Arc<Device>,
+         swap_chain_extent: [u32; 2],

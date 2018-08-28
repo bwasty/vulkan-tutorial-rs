@@ -12,10 +12,27 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -304,10 +309,35 @@ impl HelloTriangleApplication {
+@@ -99,7 +104,7 @@ impl HelloTriangleApplication {
+         let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
+             &device, &graphics_queue, &present_queue);
+ 
+-        Self::create_graphics_pipeline(&device);
++        Self::create_graphics_pipeline(&device, swap_chain.dimensions());
+ 
+         Self {
+             instance,
+@@ -295,6 +300,7 @@ impl HelloTriangleApplication {
+ 
+     fn create_graphics_pipeline(
+         device: &Arc<Device>,
++        swap_chain_extent: [u32; 2],
+     ) {
+         #[allow(unused)]
+         mod vertex_shader {
+@@ -312,10 +318,34 @@ impl HelloTriangleApplication {
+             struct Dummy;
          }
  
-         let device = self.device.as_ref().unwrap();
 -        let _vert_shader_module = vertex_shader::Shader::load(device.clone())
 +        let vert_shader_module = vertex_shader::Shader::load(device.clone())
              .expect("failed to create vertex shader module!");
@@ -23,7 +40,6 @@
 +        let frag_shader_module = fragment_shader::Shader::load(device.clone())
              .expect("failed to create fragment shader module!");
 +
-+        let swap_chain_extent = self.swap_chain_extent.unwrap();
 +        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
 +        let viewport = Viewport {
 +            origin: [0.0, 0.0],
@@ -37,6 +53,7 @@
 +            .triangle_list()
 +            .primitive_restart(false)
 +            .viewports(vec![viewport]) // NOTE: also sets scissor to cover whole viewport
++            .fragment_shader(frag_shader_module.main_entry_point(), ())
 +            .depth_clamp(false)
 +            // NOTE: there's an outcommented .rasterizer_discard() in Vulkano...
 +            .polygon_mode_fill() // = default
@@ -45,8 +62,7 @@
 +            .front_face_clockwise()
 +            // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
 +            .blend_pass_through() // = default
-+            .fragment_shader(frag_shader_module.main_entry_point(), ())
 +        );
      }
  
-     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+     fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
