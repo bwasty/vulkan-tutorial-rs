@@ -13,4 +13,4 @@ winit = "0.17.1"
 
 [[bin]]
 name = "main"
-path = "src/bin/19_staging_buffer.rs"
+path = "src/bin/18_vertex_buffer.rs"
