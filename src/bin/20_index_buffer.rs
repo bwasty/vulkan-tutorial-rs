@@ -140,8 +140,8 @@ struct HelloTriangleApplication {
 
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
-    vertex_buffer: Option<Arc<BufferAccess + Send + Sync>>,
-    index_buffer: Option<Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>>,
+    vertex_buffer: Arc<BufferAccess + Send + Sync>,
+    index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
     previous_frame_end: Option<Box<GpuFuture>>,
@@ -149,7 +149,7 @@ struct HelloTriangleApplication {
 }
 
 impl HelloTriangleApplication {
-    pub fn new() -> Self {
+    pub fn initialize() -> Self {
         let instance = Self::create_instance();
         let debug_callback = Self::setup_debug_callback(&instance);
         let (events_loop, surface) = Self::create_surface(&instance);
@@ -164,7 +164,14 @@ impl HelloTriangleApplication {
         let render_pass = Self::create_render_pass(&device, swap_chain.format());
         let graphics_pipeline = Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
 
-        Self {
+        let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
+
+        let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
+        let index_buffer = Self::create_index_buffer(&graphics_queue);
+
+        let previous_frame_end = Some(Self::create_sync_objects(&device));
+
+        let mut app = Self {
             instance,
             debug_callback,
 
@@ -183,28 +190,18 @@ impl HelloTriangleApplication {
             render_pass,
             graphics_pipeline,
 
-            swap_chain_framebuffers: vec![],
+            swap_chain_framebuffers,
 
-            vertex_buffer: None,
-            index_buffer: None,
+            vertex_buffer,
+            index_buffer,
             command_buffers: vec![],
 
-            previous_frame_end: None,
+            previous_frame_end,
             recreate_swap_chain: false,
-        }
-    }
+        };
 
-    pub fn run(&mut self) {
-        self.init_vulkan();
-        self.main_loop();
-    }
-
-    fn init_vulkan(&mut self) {
-        self.create_framebuffers();
-        self.create_vertex_buffer();
-        self.create_index_buffer();
-        self.create_command_buffers();
-        self.create_sync_objects();
+        app.create_command_buffers();
+        app
     }
 
     fn create_instance() -> Arc<Instance> {
@@ -453,33 +450,36 @@ impl HelloTriangleApplication {
         )
     }
 
-    fn create_framebuffers(&mut self) {
-        self.swap_chain_framebuffers = self.swap_chain_images.iter()
+    fn create_framebuffers(
+        swap_chain_images: &Vec<Arc<SwapchainImage<Window>>>,
+        render_pass: &Arc<RenderPassAbstract + Send + Sync>
+    ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
+        swap_chain_images.iter()
             .map(|image| {
-                let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(self.render_pass.clone())
+                let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(render_pass.clone())
                     .add(image.clone()).unwrap()
                     .build().unwrap());
                 fba
             }
-        ).collect::<Vec<_>>();
+        ).collect::<Vec<_>>()
     }
 
-    fn create_vertex_buffer(&mut self) {
+    fn create_vertex_buffer(graphics_queue: &Arc<Queue>) -> Arc<BufferAccess + Send + Sync> {
         let (buffer, future) = ImmutableBuffer::from_iter(
             vertices().iter().cloned(), BufferUsage::vertex_buffer(),
-            self.graphics_queue.clone())
+            graphics_queue.clone())
             .unwrap();
         future.flush().unwrap();
-        self.vertex_buffer = Some(buffer);
+        buffer
     }
 
-    fn create_index_buffer(&mut self) {
+    fn create_index_buffer(graphics_queue: &Arc<Queue>) -> Arc<TypedBufferAccess<Content=[u16]> + Send + Sync> {
         let (buffer, future) = ImmutableBuffer::from_iter(
             indices().iter().cloned(), BufferUsage::index_buffer(),
-            self.graphics_queue.clone())
+            graphics_queue.clone())
             .unwrap();
         future.flush().unwrap();
-        self.index_buffer = Some(buffer);
+        buffer
     }
 
     fn create_command_buffers(&mut self) {
@@ -491,8 +491,8 @@ impl HelloTriangleApplication {
                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                     .unwrap()
                     .draw_indexed(self.graphics_pipeline.clone(), &DynamicState::none(),
-                        vec![self.vertex_buffer.as_ref().unwrap().clone()],
-                        self.index_buffer.as_ref().unwrap().clone(), (), ())
+                        vec![self.vertex_buffer.clone()],
+                        self.index_buffer.clone(), (), ())
                     .unwrap()
                     .end_render_pass()
                     .unwrap()
@@ -502,9 +502,8 @@ impl HelloTriangleApplication {
             .collect();
     }
 
-    fn create_sync_objects(&mut self) {
-        self.previous_frame_end =
-            Some(Box::new(sync::now(self.device.clone())) as Box<GpuFuture>);
+    fn create_sync_objects(device: &Arc<Device>) -> Box<GpuFuture> {
+        Box::new(sync::now(device.clone())) as Box<GpuFuture>
     }
 
     fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
@@ -640,12 +639,12 @@ impl HelloTriangleApplication {
         self.render_pass = Self::create_render_pass(&self.device, self.swap_chain.format());
         self.graphics_pipeline = Self::create_graphics_pipeline(&self.device, self.swap_chain.dimensions(),
             &self.render_pass);
-        self.create_framebuffers();
+        Self::create_framebuffers(&self.swap_chain_images, &self.render_pass);
         self.create_command_buffers();
     }
 }
 
 fn main() {
-    let mut app = HelloTriangleApplication::new();
-    app.run();
+    let mut app = HelloTriangleApplication::initialize();
+    app.main_loop();
 }
