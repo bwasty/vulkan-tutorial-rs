@@ -29,50 +29,58 @@
 +    [0, 1, 2, 2, 3, 0]
 +}
 +
- #[derive(Default)]
  struct HelloTriangleApplication {
-     instance: Option<Arc<Instance>>,
+     instance: Arc<Instance>,
+     #[allow(unused)]
 @@ -135,6 +141,7 @@ struct HelloTriangleApplication {
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
  
-     vertex_buffer: Option<Arc<BufferAccess + Send + Sync>>,
-+    index_buffer: Option<Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>>,
+     vertex_buffer: Arc<BufferAccess + Send + Sync>,
++    index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
      command_buffers: Vec<Arc<AutoCommandBuffer>>,
  
      previous_frame_end: Option<Box<GpuFuture>>,
-@@ -164,6 +171,7 @@ impl HelloTriangleApplication {
-         self.create_graphics_pipeline();
-         self.create_framebuffers();
-         self.create_vertex_buffer();
-+        self.create_index_buffer();
-         self.create_command_buffers();
-         self.create_sync_objects();
-     }
-@@ -435,6 +443,15 @@ impl HelloTriangleApplication {
-         self.vertex_buffer = Some(buffer);
+@@ -160,6 +167,7 @@ impl HelloTriangleApplication {
+         let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
+ 
+         let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
++        let index_buffer = Self::create_index_buffer(&graphics_queue);
+ 
+         let previous_frame_end = Some(Self::create_sync_objects(&device));
+ 
+@@ -185,6 +193,7 @@ impl HelloTriangleApplication {
+             swap_chain_framebuffers,
+ 
+             vertex_buffer,
++            index_buffer,
+             command_buffers: vec![],
+ 
+             previous_frame_end,
+@@ -464,6 +473,15 @@ impl HelloTriangleApplication {
+         buffer
      }
  
-+    fn create_index_buffer(&mut self) {
++    fn create_index_buffer(graphics_queue: &Arc<Queue>) -> Arc<TypedBufferAccess<Content=[u16]> + Send + Sync> {
 +        let (buffer, future) = ImmutableBuffer::from_iter(
 +            indices().iter().cloned(), BufferUsage::index_buffer(),
-+            self.graphics_queue().clone())
++            graphics_queue.clone())
 +            .unwrap();
 +        future.flush().unwrap();
-+        self.index_buffer = Some(buffer);
++        buffer
 +    }
 +
      fn create_command_buffers(&mut self) {
-         let queue_family = self.graphics_queue.as_ref().unwrap().family();
-         let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
-@@ -444,8 +461,9 @@ impl HelloTriangleApplication {
+         let queue_family = self.graphics_queue.family();
+         self.command_buffers = self.swap_chain_framebuffers.iter()
+@@ -472,8 +490,9 @@ impl HelloTriangleApplication {
                      .unwrap()
                      .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                      .unwrap()
--                    .draw(graphics_pipeline.clone(), &DynamicState::none(),
--                        vec![self.vertex_buffer.as_ref().unwrap().clone()], (), ())
-+                    .draw_indexed(graphics_pipeline.clone(), &DynamicState::none(),
-+                        vec![self.vertex_buffer.as_ref().unwrap().clone()],
-+                        self.index_buffer.as_ref().unwrap().clone(), (), ())
+-                    .draw(self.graphics_pipeline.clone(), &DynamicState::none(),
+-                        vec![self.vertex_buffer.clone()], (), ())
++                    .draw_indexed(self.graphics_pipeline.clone(), &DynamicState::none(),
++                        vec![self.vertex_buffer.clone()],
++                        self.index_buffer.clone(), (), ())
                      .unwrap()
                      .end_render_pass()
                      .unwrap()
