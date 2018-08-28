@@ -80,16 +80,16 @@ impl HelloTriangleApplication {
         }
     }
 
-fn init_window() -> EventsLoop {
-    let events_loop = EventsLoop::new();
-    let _window_builder = WindowBuilder::new()
-        .with_title("Vulkan")
-        .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
-        // .build(&self.events_loop.as_ref().unwrap());
-    events_loop
-}
+    fn init_window() -> EventsLoop {
+        let events_loop = EventsLoop::new();
+        let _window_builder = WindowBuilder::new()
+            .with_title("Vulkan")
+            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
+            // .build(&self.events_loop.as_ref().unwrap());
+        events_loop
+    }
 
-fn create_instance() -> Arc<Instance> {
+    fn create_instance() -> Arc<Instance> {
         if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
             println!("Validation layers requested, but not available!")
         }

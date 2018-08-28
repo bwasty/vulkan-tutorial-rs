@@ -1,6 +1,6 @@
 --- a/03_physical_device_selection.rs
 +++ b/04_logical_device.rs
-@@ -12,8 +12,10 @@ use vulkano::instance::{
+@@ -13,8 +13,10 @@ use vulkano::instance::{
      Version,
      layers_list,
      PhysicalDevice,
@@ -11,34 +11,49 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -45,6 +47,9 @@ struct HelloTriangleApplication {
-     instance: Option<Arc<Instance>>,
-     debug_callback: Option<DebugCallback>,
-     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
-+    device: Option<Arc<Device>>,
-+
-+    graphics_queue: Option<Arc<Queue>>,
+@@ -49,6 +51,9 @@ struct HelloTriangleApplication {
+     events_loop: EventsLoop,
  
-     events_loop: Option<winit::EventsLoop>,
+     physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
++    device: Arc<Device>,
++
++    graphics_queue: Arc<Queue>,
  }
-@@ -74,6 +79,7 @@ impl HelloTriangleApplication {
-         self.create_instance();
-         self.setup_debug_callback();
-         self.pick_physical_device();
-+        self.create_logical_device();
+ 
+ impl HelloTriangleApplication {
+@@ -59,6 +64,8 @@ impl HelloTriangleApplication {
+         let events_loop = Self::init_window();
+ 
+         let physical_device_index = Self::pick_physical_device(&instance);
++        let (device, graphics_queue) = Self::create_logical_device(
++            &instance, physical_device_index);
+ 
+         Self {
+             instance,
+@@ -67,6 +74,9 @@ impl HelloTriangleApplication {
+             events_loop,
+ 
+             physical_device_index,
++            device,
++
++            graphics_queue,
+         }
      }
  
-     fn create_instance(&mut self) {
-@@ -166,6 +172,26 @@ impl HelloTriangleApplication {
+@@ -166,6 +176,31 @@ impl HelloTriangleApplication {
          indices
      }
  
-+    fn create_logical_device(&mut self) {
-+        let instance = self.instance.as_ref().unwrap();
-+        let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
-+        let indices = self.find_queue_families(&physical_device);
++    fn create_logical_device(
++        instance: &Arc<Instance>,
++        physical_device_index: usize,
++    ) -> (Arc<Device>, Arc<Queue>) {
++        let physical_device = PhysicalDevice::from_index(&instance, physical_device_index).unwrap();
++        let indices = Self::find_queue_families(&physical_device);
++
 +        let queue_family = physical_device.queue_families()
 +            .nth(indices.graphics_family as usize).unwrap();
++
 +        let queue_priority = 1.0;
 +
 +        // NOTE: the tutorial recommends passing the validation layers as well
@@ -49,8 +64,9 @@
 +            [(queue_family, queue_priority)].iter().cloned())
 +            .expect("failed to create logical device!");
 +
-+        self.device = Some(device);
-+        self.graphics_queue = queues.next();
++        let graphics_queue = queues.next().unwrap();
++
++        (device, graphics_queue)
 +    }
 +
      #[allow(unused)]

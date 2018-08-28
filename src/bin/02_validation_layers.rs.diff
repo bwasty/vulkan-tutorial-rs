@@ -1,6 +1,6 @@
 --- a/01_instance_creation.rs
 +++ b/02_validation_layers.rs
-@@ -10,14 +10,26 @@ use vulkano::instance::{
+@@ -11,24 +11,41 @@ use vulkano::instance::{
      InstanceExtensions,
      ApplicationInfo,
      Version,
@@ -20,21 +20,32 @@
 +#[cfg(not(debug_assertions))]
 +const ENABLE_VALIDATION_LAYERS: bool = false;
 +
- #[derive(Default)]
+ #[allow(unused)]
  struct HelloTriangleApplication {
-     instance: Option<Arc<Instance>>,
+     instance: Arc<Instance>,
 +    debug_callback: Option<DebugCallback>,
- 
-     events_loop: Option<winit::EventsLoop>,
++
+     events_loop: EventsLoop,
  }
-@@ -45,9 +57,14 @@ impl HelloTriangleApplication {
  
-     fn init_vulkan(&mut self) {
-         self.create_instance();
-+        self.setup_debug_callback();
+ impl HelloTriangleApplication {
+     pub fn initialize() -> Self {
+         let instance = Self::create_instance();
++        let debug_callback = Self::setup_debug_callback(&instance);
++
+         let events_loop = Self::init_window();
+ 
+         Self {
+             instance,
++            debug_callback,
++
+             events_loop,
+         }
+     }
+@@ -43,6 +60,10 @@ impl HelloTriangleApplication {
      }
  
-     fn create_instance(&mut self) {
+     fn create_instance() -> Arc<Instance> {
 +        if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
 +            println!("Validation layers requested, but not available!")
 +        }
@@ -42,24 +53,22 @@
          let supported_extensions = InstanceExtensions::supported_by_core()
              .expect("failed to retrieve supported extensions");
          println!("Supported extensions: {:?}", supported_extensions);
-@@ -59,9 +76,51 @@ impl HelloTriangleApplication {
+@@ -54,9 +75,48 @@ impl HelloTriangleApplication {
              engine_version: Some(Version { major: 1, minor: 0, patch: 0 }),
          };
  
 -        let required_extensions = vulkano_win::required_extensions();
--        self.instance = Some(Instance::new(Some(&app_info), &required_extensions, None)
--            .expect("failed to create Vulkan instance"))
+-        Instance::new(Some(&app_info), &required_extensions, None)
+-            .expect("failed to create Vulkan instance")
 +        let required_extensions = Self::get_required_extensions();
 +
-+        let instance =
-+            if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-+                Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
-+                    .expect("failed to create Vulkan instance")
-+            } else {
-+                Instance::new(Some(&app_info), &required_extensions, None)
-+                    .expect("failed to create Vulkan instance")
-+            };
-+        self.instance = Some(instance);
++        if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
++            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
++                .expect("failed to create Vulkan instance")
++        } else {
++            Instance::new(Some(&app_info), &required_extensions, None)
++                .expect("failed to create Vulkan instance")
++        }
 +    }
 +
 +    fn check_validation_layer_support() -> bool {
@@ -78,12 +87,11 @@
 +        extensions
 +    }
 +
-+    fn setup_debug_callback(&mut self) {
++    fn setup_debug_callback(instance: &Arc<Instance>) -> Option<DebugCallback> {
 +        if !ENABLE_VALIDATION_LAYERS  {
-+            return;
++            return None;
 +        }
 +
-+        let instance = self.instance.as_ref().unwrap();
 +        let msg_types = MessageTypes {
 +            error: true,
 +            warning: true,
@@ -91,9 +99,9 @@
 +            information: false,
 +            debug: true,
 +        };
-+        self.debug_callback = DebugCallback::new(instance, msg_types, |msg| {
++        DebugCallback::new(&instance, msg_types, |msg| {
 +            println!("validation layer: {:?}", msg.description);
-+        }).ok();
++        }).ok()
      }
  
      #[allow(unused)]
