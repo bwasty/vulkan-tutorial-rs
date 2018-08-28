@@ -133,13 +133,13 @@ impl HelloTriangleApplication {
 
         let required_extensions = Self::get_required_extensions();
 
-            if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-                Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
-                    .expect("failed to create Vulkan instance")
-            } else {
-                Instance::new(Some(&app_info), &required_extensions, None)
-                    .expect("failed to create Vulkan instance")
-    }
+        if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
+            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+                .expect("failed to create Vulkan instance")
+        } else {
+            Instance::new(Some(&app_info), &required_extensions, None)
+                .expect("failed to create Vulkan instance")
+        }
     }
 
     fn check_validation_layer_support() -> bool {

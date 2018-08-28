@@ -1,18 +1,18 @@
 --- a/04_logical_device.rs
 +++ b/05_window_surface.rs
-@@ -3,8 +3,11 @@ extern crate vulkano_win;
+@@ -3,8 +3,10 @@ extern crate vulkano_win;
  extern crate winit;
  
  use std::sync::Arc;
 +use std::collections::HashSet;
  
- use winit::{ WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
+-use winit::{EventsLoop, WindowBuilder, dpi::LogicalSize, Event, WindowEvent};
++use winit::{EventsLoop, WindowBuilder, Window, dpi::LogicalSize, Event, WindowEvent};
 +use vulkano_win::VkSurfaceBuild;
-+
+ 
  use vulkano::instance::{
      Instance,
-     InstanceExtensions,
-@@ -16,6 +19,9 @@ use vulkano::instance::{
+@@ -17,6 +19,9 @@ use vulkano::instance::{
  };
  use vulkano::instance::debug::{DebugCallback, MessageTypes};
  use vulkano::device::{Device, DeviceExtensions, Queue};
@@ -22,7 +22,7 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -31,14 +37,15 @@ const ENABLE_VALIDATION_LAYERS: bool = false;
+@@ -32,14 +37,15 @@ const ENABLE_VALIDATION_LAYERS: bool = false;
  
  struct QueueFamilyIndices {
      graphics_family: i32,
@@ -40,70 +40,116 @@
      }
  }
  
-@@ -46,10 +53,13 @@ impl QueueFamilyIndices {
- struct HelloTriangleApplication {
-     instance: Option<Arc<Instance>>,
+@@ -49,47 +55,41 @@ struct HelloTriangleApplication {
      debug_callback: Option<DebugCallback>,
-+    surface: Option<Arc<Surface<winit::Window>>>,
-+
+ 
+     events_loop: EventsLoop,
++    surface: Arc<Surface<Window>>,
+ 
      physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
-     device: Option<Arc<Device>>,
+     device: Arc<Device>,
  
-     graphics_queue: Option<Arc<Queue>>,
-+    present_queue: Option<Arc<Queue>>,
- 
-     events_loop: Option<winit::EventsLoop>,
+     graphics_queue: Arc<Queue>,
++    present_queue: Arc<Queue>,
  }
-@@ -60,24 +70,14 @@ impl HelloTriangleApplication {
-     }
  
-     pub fn run(&mut self) {
--        self.init_window();
-         self.init_vulkan();
-         // self.main_loop();
-     }
+ impl HelloTriangleApplication {
+     pub fn initialize() -> Self {
+         let instance = Self::create_instance();
+         let debug_callback = Self::setup_debug_callback(&instance);
++        let (events_loop, surface) = Self::create_surface(&instance);
  
--    fn init_window(&mut self) {
--        self.events_loop = Some(winit::EventsLoop::new());
--        // We'll leave this and the main loop commented out until we actually
--        // have something to show on screen.
--        let _window_builder = WindowBuilder::new()
--            .with_title("Vulkan")
--            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
--            // .build(&self.events_loop.as_ref().unwrap());
--    }
+-        let events_loop = Self::init_window();
 -
-     fn init_vulkan(&mut self) {
-         self.create_instance();
-         self.setup_debug_callback();
-+        self.create_surface();
-         self.pick_physical_device();
-         self.create_logical_device();
+-        let physical_device_index = Self::pick_physical_device(&instance);
+-        let (device, graphics_queue) = Self::create_logical_device(
+-            &instance, physical_device_index);
++        let physical_device_index = Self::pick_physical_device(&instance, &surface);
++        let (device, graphics_queue, present_queue) = Self::create_logical_device(
++            &instance, &surface, physical_device_index);
+ 
+         Self {
+             instance,
+             debug_callback,
+ 
+             events_loop,
++            surface,
+ 
+             physical_device_index,
+             device,
+ 
+             graphics_queue,
++            present_queue,
+         }
      }
-@@ -164,6 +164,10 @@ impl HelloTriangleApplication {
+ 
+-fn init_window() -> EventsLoop {
+-    let events_loop = EventsLoop::new();
+-    let _window_builder = WindowBuilder::new()
+-        .with_title("Vulkan")
+-        .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)));
+-        // .build(&self.events_loop.as_ref().unwrap());
+-    events_loop
+-}
+-
+-fn create_instance() -> Arc<Instance> {
++    fn create_instance() -> Arc<Instance> {
+         if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
+             println!("Validation layers requested, but not available!")
+         }
+@@ -149,18 +149,18 @@ fn create_instance() -> Arc<Instance> {
+         }).ok()
+     }
+ 
+-    fn pick_physical_device(instance: &Arc<Instance>) -> usize {
++    fn pick_physical_device(instance: &Arc<Instance>, surface: &Arc<Surface<Window>>) -> usize {
+         PhysicalDevice::enumerate(&instance)
+-            .position(|device| Self::is_device_suitable(&device))
++            .position(|device| Self::is_device_suitable(surface, &device))
+             .expect("failed to find a suitable GPU!")
+     }
+ 
+-    fn is_device_suitable(device: &PhysicalDevice) -> bool {
+-        let indices = Self::find_queue_families(device);
++    fn is_device_suitable(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> bool {
++        let indices = Self::find_queue_families(surface, device);
+         indices.is_complete()
+     }
+ 
+-    fn find_queue_families(device: &PhysicalDevice) -> QueueFamilyIndices {
++    fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
+         let mut indices = QueueFamilyIndices::new();
+         // TODO: replace index with id to simplify?
+         for (i, queue_family) in device.queue_families().enumerate() {
+@@ -168,6 +168,10 @@ fn create_instance() -> Arc<Instance> {
                  indices.graphics_family = i as i32;
              }
  
-+            if self.surface.as_ref().unwrap().is_supported(queue_family).unwrap() {
++            if surface.is_supported(queue_family).unwrap() {
 +                indices.present_family = i as i32;
 +            }
 +
              if indices.is_complete() {
                  break;
              }
-@@ -175,21 +179,43 @@ impl HelloTriangleApplication {
-     fn create_logical_device(&mut self) {
-         let instance = self.instance.as_ref().unwrap();
-         let physical_device = PhysicalDevice::from_index(instance, self.physical_device_index).unwrap();
-+
-         let indices = self.find_queue_families(&physical_device);
+@@ -178,27 +182,43 @@ fn create_instance() -> Arc<Instance> {
+ 
+     fn create_logical_device(
+         instance: &Arc<Instance>,
++        surface: &Arc<Surface<Window>>,
+         physical_device_index: usize,
+-    ) -> (Arc<Device>, Arc<Queue>) {
++    ) -> (Arc<Device>, Arc<Queue>, Arc<Queue>) {
+         let physical_device = PhysicalDevice::from_index(&instance, physical_device_index).unwrap();
+-        let indices = Self::find_queue_families(&physical_device);
++        let indices = Self::find_queue_families(&surface, &physical_device);
+ 
 -        let queue_family = physical_device.queue_families()
 -            .nth(indices.graphics_family as usize).unwrap();
-+
 +        let families = [indices.graphics_family, indices.present_family];
 +        use std::iter::FromIterator;
 +        let unique_queue_families: HashSet<&i32> = HashSet::from_iter(families.iter());
-+
+ 
          let queue_priority = 1.0;
 +        let queue_families = unique_queue_families.iter().map(|i| {
 +            (physical_device.queue_families().nth(**i as usize).unwrap(), queue_priority)
@@ -119,24 +165,29 @@
 +            &DeviceExtensions::none(), queue_families)
              .expect("failed to create logical device!");
  
-         self.device = Some(device);
--        self.graphics_queue = queues.next();
+         let graphics_queue = queues.next().unwrap();
++        let present_queue = queues.next().unwrap_or_else(|| graphics_queue.clone());
 +
-+        // TODO!: simplify
-+        self.graphics_queue = queues
-+            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.graphics_family as usize).unwrap().id());
-+        self.present_queue = queues
-+            .find(|q| q.family().id() == physical_device.queue_families().nth(indices.present_family as usize).unwrap().id());
++        (device, graphics_queue, present_queue)
 +    }
-+
-+    fn create_surface(&mut self) {
-+        self.events_loop = Some(winit::EventsLoop::new());
-+        self.surface = WindowBuilder::new()
+ 
+-        (device, graphics_queue)
++    fn create_surface(instance: &Arc<Instance>) -> (EventsLoop, Arc<Surface<Window>>) {
++        let events_loop = EventsLoop::new();
++        let surface = WindowBuilder::new()
 +            .with_title("Vulkan")
 +            .with_dimensions(LogicalSize::new(f64::from(WIDTH), f64::from(HEIGHT)))
-+            .build_vk_surface(&self.events_loop.as_ref().unwrap(), self.instance().clone())
-+            .expect("failed to create window surface!")
-+            .into();
++            .build_vk_surface(&events_loop, instance.clone())
++            .expect("failed to create window surface!");
++        (events_loop, surface)
      }
  
      #[allow(unused)]
+@@ -220,7 +240,5 @@ fn create_instance() -> Arc<Instance> {
+ 
+ fn main() {
+     let mut _app = HelloTriangleApplication::initialize();
+-    // We'll leave this and the main loop commented out until we actually
+-    // have something to show on screen.
+     // app.main_loop();
+ }
