@@ -20,38 +20,52 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -111,6 +117,8 @@ struct HelloTriangleApplication {
+@@ -108,6 +114,8 @@ struct HelloTriangleApplication {
+     graphics_pipeline: Arc<ConcreteGraphicsPipeline>,
  
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
- 
-+    command_buffers: Vec<Arc<AutoCommandBuffer>>,
 +
-     events_loop: Option<winit::EventsLoop>,
++    command_buffers: Vec<Arc<AutoCommandBuffer>>,
  }
  
-@@ -134,6 +142,7 @@ impl HelloTriangleApplication {
-         self.create_render_pass();
-         self.create_graphics_pipeline();
-         self.create_framebuffers();
-+        self.create_command_buffers();
+ impl HelloTriangleApplication {
+@@ -128,7 +136,7 @@ impl HelloTriangleApplication {
+ 
+         let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
+ 
+-        Self {
++        let mut app = Self {
+             instance,
+             debug_callback,
+ 
+@@ -148,7 +156,12 @@ impl HelloTriangleApplication {
+             graphics_pipeline,
+ 
+             swap_chain_framebuffers,
+-        }
++
++            command_buffers: vec![],
++        };
++
++        app.create_command_buffers();
++        app
      }
  
-     fn create_instance(&mut self) {
-@@ -394,6 +403,27 @@ impl HelloTriangleApplication {
-         ).collect::<Vec<_>>();
+     fn create_instance() -> Arc<Instance> {
+@@ -410,6 +423,26 @@ impl HelloTriangleApplication {
+         ).collect::<Vec<_>>()
      }
  
 +    fn create_command_buffers(&mut self) {
-+        let queue_family = self.graphics_queue.as_ref().unwrap().family();
-+        let graphics_pipeline = self.graphics_pipeline.as_ref().unwrap();
++        let queue_family = self.graphics_queue.family();
 +        self.command_buffers = self.swap_chain_framebuffers.iter()
 +            .map(|framebuffer| {
 +                let vertices = BufferlessVertices { vertices: 3, instances: 1 };
-+                Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device().clone(), queue_family)
++                Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device.clone(), queue_family)
 +                    .unwrap()
 +                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
 +                    .unwrap()
-+                    .draw(graphics_pipeline.clone(), &DynamicState::none(),
++                    .draw(self.graphics_pipeline.clone(), &DynamicState::none(),
 +                        vertices, (), ())
 +                    .unwrap()
 +                    .end_render_pass()
@@ -62,6 +76,6 @@
 +            .collect();
 +    }
 +
-     fn find_queue_families(&self, device: &PhysicalDevice) -> QueueFamilyIndices {
+     fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
          let mut indices = QueueFamilyIndices::new();
          // TODO: replace index with id to simplify?
