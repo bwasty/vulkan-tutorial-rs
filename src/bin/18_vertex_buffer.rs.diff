@@ -89,15 +89,6 @@
              command_buffers: vec![],
  
              previous_frame_end,
-@@ -198,7 +219,7 @@ impl HelloTriangleApplication {
-             } else {
-                 Instance::new(Some(&app_info), &required_extensions, None)
-                     .expect("failed to create Vulkan instance")
--    }
-+        }
-     }
- 
-     fn check_validation_layer_support() -> bool {
 @@ -370,12 +391,12 @@ impl HelloTriangleApplication {
          device: &Arc<Device>,
          swap_chain_extent: [u32; 2],
