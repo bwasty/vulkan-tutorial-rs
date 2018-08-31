@@ -620,7 +620,7 @@ impl HelloTriangleApplication {
         self.render_pass = Self::create_render_pass(&self.device, self.swap_chain.format());
         self.graphics_pipeline = Self::create_graphics_pipeline(&self.device, self.swap_chain.dimensions(),
             &self.render_pass);
-        Self::create_framebuffers(&self.swap_chain_images, &self.render_pass);
+        self.swap_chain_framebuffers = Self::create_framebuffers(&self.swap_chain_images, &self.render_pass);
         self.create_command_buffers();
     }
 }
