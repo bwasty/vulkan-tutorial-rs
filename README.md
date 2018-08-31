@@ -264,7 +264,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics
 #### Shader Modules
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Shader_modules
 
-Instead of compiling the shaders to SPIR-V manually and loading them at runtime, we'll use [vulkano-shader-derive](https://docs.rs/crate/vulkano-shader-derive/) to do the same at compile-time. Loading them at runtime is also possible, but a bit more invovled - see the [runtime shaders](https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/runtime-shader.rs) example of Vulkano.
+Instead of compiling the shaders to SPIR-V manually and loading them at runtime, we'll use [vulkano-shader-derive](https://docs.rs/crate/vulkano-shader-derive/) to do the same at compile-time. Loading them at runtime is also possible, but a bit more invovled - see the [runtime shader](https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/runtime-shader/main.rs) example of Vulkano.
 
 [Diff](src/bin/09_shader_modules.rs.diff) / [Rust code](src/bin/09_shader_modules.rs) / [Vertex shader](src/bin/09_shader_base.vert) / [Fragment shader](src/bin/09_shader_base.frag)
 
