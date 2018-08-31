@@ -606,8 +606,6 @@ impl HelloTriangleApplication {
     }
 
     fn recreate_swap_chain(&mut self) {
-        unsafe { self.device.wait().unwrap(); }
-
         let (swap_chain, images) = Self::create_swap_chain(&self.instance, &self.surface, self.physical_device_index,
             &self.device, &self.graphics_queue, &self.present_queue, Some(self.swap_chain.clone()));
         self.swap_chain = swap_chain;
