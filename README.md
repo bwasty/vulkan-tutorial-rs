@@ -1,7 +1,7 @@
 # vulkan-tutorial-rs
 Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://vulkano.rs/).
 
-**Goal**: Rust port with code structure as similar as possible to the original C++, so the original tutorial can easily be followed (similar to [learn-opengl-rs](https://github.com/bwasty/learn-opengl-rs)).
+**Goal**: Rust port with a code structure similar to the original C++, so the original tutorial can easily be followed (similar to [learn-opengl-rs](https://github.com/bwasty/learn-opengl-rs)).
 
 **Current State**: The chapters `Drawing a triangle` and `Vertex buffers` are complete.
 
@@ -333,6 +333,20 @@ https://vulkan-tutorial.com/Vertex_buffers/Index_buffer
 [Diff](src/bin/20_index_buffer.rs.diff) / [Complete code](src/bin/20_index_buffer.rs)
 
 ## Uniform buffers (*TODO*)
+### Descriptor layout and buffer
+https://vulkan-tutorial.com/Uniform_buffers/Descriptor_layout_and_buffer
+- cgmath
+- ubo.proj[1][1] *= -1;
+#### Descriptor set layout
+- We won't replicate the `UniformBufferObject` struct in Rust or create a descriptor set layout ourselves - `vulkano_shader_derive` takes care of that. If you want to know how the generated code looks like, you could use [`cargo-expand`](https://github.com/dtolnay/cargo-expand).
+#### Uniform buffer
+- Instead of creating a uniform buffer per swapchain image, we'll let Vulkano's [`CpuBufferPool`](https://docs.rs/vulkano/0.10.0/vulkano/buffer/cpu_pool/struct.CpuBufferPool.html) handle the allocation details.
+
+The code is again combined with the next section, since it won't compile at this state.
+
+### Descriptor pool and sets
+Vulkano handles pool allocation by default, so we can directly create a descriptor set using [`PersistentDescriptorSet`](https://docs.rs/vulkano/0.10.0/vulkano/descriptor/descriptor_set/struct.PersistentDescriptorSet.html) (see the [module documentation](https://docs.rs/vulkano/0.10.0/vulkano/descriptor/descriptor_set/index.html) for more details).
+
 ## Texture mapping (*TODO*)
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)

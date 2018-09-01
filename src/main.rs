@@ -4,8 +4,10 @@ extern crate vulkano;
 extern crate vulkano_shader_derive;
 extern crate vulkano_win;
 extern crate winit;
+extern crate cgmath;
 
 use std::sync::Arc;
+use std::time::Instant;
 use std::collections::HashSet;
 
 use winit::{EventsLoop, WindowBuilder, Window, dpi::LogicalSize, Event, WindowEvent};
@@ -54,10 +56,14 @@ use vulkano::command_buffer::{
 };
 use vulkano::buffer::{
     immutable::ImmutableBuffer,
+    cpu_pool::{CpuBufferPool, CpuBufferPoolSubbuffer},
     BufferUsage,
     BufferAccess,
     TypedBufferAccess,
 };
+use vulkano::memory::pool::StdMemoryPool;
+
+use cgmath::{Matrix4, Deg, Rad, Vector3, perspective};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -91,6 +97,23 @@ impl QueueFamilyIndices {
     fn is_complete(&self) -> bool {
         self.graphics_family >= 0 && self.present_family >= 0
     }
+}
+
+#[allow(unused)]
+mod vertex_shader {
+    #[derive(VulkanoShader)]
+    #[ty = "vertex"]
+    #[path = "src/shaders/shader.vert"]
+    struct Dummy;
+}
+use vertex_shader::ty::UniformBufferObject;
+
+#[allow(unused)]
+mod fragment_shader {
+    #[derive(VulkanoShader)]
+    #[ty = "fragment"]
+    #[path = "src/shaders/shader.frag"]
+    struct Dummy;
 }
 
 #[derive(Copy, Clone)]
@@ -142,10 +165,13 @@ struct HelloTriangleApplication {
 
     vertex_buffer: Arc<BufferAccess + Send + Sync>,
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
+    uniform_buffer_pool: CpuBufferPool<UniformBufferObject>,
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
     previous_frame_end: Option<Box<GpuFuture>>,
     recreate_swap_chain: bool,
+
+    start_time: Instant,
 }
 
 impl HelloTriangleApplication {
@@ -168,6 +194,9 @@ impl HelloTriangleApplication {
 
         let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
         let index_buffer = Self::create_index_buffer(&graphics_queue);
+        let uniform_buffer_pool = Self::create_uniform_buffer(&device);
+
+        // Self::create_descriptor_sets();
 
         let previous_frame_end = Some(Self::create_sync_objects(&device));
 
@@ -194,10 +223,13 @@ impl HelloTriangleApplication {
 
             vertex_buffer,
             index_buffer,
+            uniform_buffer_pool,
             command_buffers: vec![],
 
             previous_frame_end,
             recreate_swap_chain: false,
+
+            start_time: Instant::now(),
         };
 
         app.create_command_buffers();
@@ -401,22 +433,6 @@ impl HelloTriangleApplication {
         swap_chain_extent: [u32; 2],
         render_pass: &Arc<RenderPassAbstract + Send + Sync>,
     ) -> Arc<GraphicsPipelineAbstract + Send + Sync> {
-        #[allow(unused)]
-        mod vertex_shader {
-            #[derive(VulkanoShader)]
-            #[ty = "vertex"]
-            #[path = "src/bin/17_shader_vertexbuffer.vert"]
-            struct Dummy;
-        }
-
-        #[allow(unused)]
-        mod fragment_shader {
-            #[derive(VulkanoShader)]
-            #[ty = "fragment"]
-            #[path = "src/bin/17_shader_vertexbuffer.frag"]
-            struct Dummy;
-        }
-
         let vert_shader_module = vertex_shader::Shader::load(device.clone())
             .expect("failed to create vertex shader module!");
         let frag_shader_module = fragment_shader::Shader::load(device.clone())
@@ -480,6 +496,10 @@ impl HelloTriangleApplication {
             .unwrap();
         future.flush().unwrap();
         buffer
+    }
+
+    fn create_uniform_buffer(device: &Arc<Device>) -> CpuBufferPool<UniformBufferObject> {
+        CpuBufferPool::uniform_buffer(device.clone())
     }
 
     fn create_command_buffers(&mut self) {
@@ -602,6 +622,8 @@ impl HelloTriangleApplication {
             Err(err) => panic!("{:?}", err)
         };
 
+        self.update_uniform_buffer();
+
         let command_buffer = self.command_buffers[image_index].clone();
 
         let future = self.previous_frame_end.take().unwrap()
@@ -639,6 +661,20 @@ impl HelloTriangleApplication {
             &self.render_pass);
         self.swap_chain_framebuffers = Self::create_framebuffers(&self.swap_chain_images, &self.render_pass);
         self.create_command_buffers();
+    }
+
+    fn update_uniform_buffer(&self) -> CpuBufferPoolSubbuffer<UniformBufferObject, Arc<StdMemoryPool>> {
+        let elapsed = self.start_time.elapsed();
+        let time = elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
+        let [width, height] = self.swap_chain.dimensions();
+        let mut ubo = UniformBufferObject {
+            model: Matrix4::from_angle_y(Rad::from(Deg(90. as f32)) * time as f32).into(),
+            view: Matrix4::look_at([2., 2., 2.].into(), [0., 0., 0.].into(), Vector3::unit_y()).into(),
+            proj: perspective(Deg(45.), width as f32 / height as f32, 0.1, 10.).into()
+        };
+        ubo.proj[1][1] *= -1.0;
+
+        self.uniform_buffer_pool.next(ubo).unwrap()
     }
 }
 
