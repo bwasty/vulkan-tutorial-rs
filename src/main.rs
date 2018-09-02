@@ -56,12 +56,12 @@ use vulkano::command_buffer::{
 };
 use vulkano::buffer::{
     immutable::ImmutableBuffer,
-    cpu_pool::{CpuBufferPool, CpuBufferPoolSubbuffer},
+    cpu_access::CpuAccessibleBuffer,
     BufferUsage,
     BufferAccess,
     TypedBufferAccess,
 };
-use vulkano::memory::pool::StdMemoryPool;
+use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
 
 use cgmath::{Matrix4, Deg, Rad, Vector3, perspective};
 
@@ -165,7 +165,8 @@ struct HelloTriangleApplication {
 
     vertex_buffer: Arc<BufferAccess + Send + Sync>,
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
-    uniform_buffer_pool: CpuBufferPool<UniformBufferObject>,
+    uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
+    descriptor_sets: Vec<Arc<DescriptorSet + Send + Sync>>,
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
     previous_frame_end: Option<Box<GpuFuture>>,
@@ -194,9 +195,10 @@ impl HelloTriangleApplication {
 
         let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
         let index_buffer = Self::create_index_buffer(&graphics_queue);
-        let uniform_buffer_pool = Self::create_uniform_buffer(&device);
+        let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain.num_images());
 
-        // Self::create_descriptor_sets();
+        let descriptor_sets = Self::create_descriptor_sets(swap_chain_images.len(),
+            &graphics_pipeline, &uniform_buffers);
 
         let previous_frame_end = Some(Self::create_sync_objects(&device));
 
@@ -223,7 +225,8 @@ impl HelloTriangleApplication {
 
             vertex_buffer,
             index_buffer,
-            uniform_buffer_pool,
+            uniform_buffers,
+            descriptor_sets,
             command_buffers: vec![],
 
             previous_frame_end,
@@ -457,7 +460,7 @@ impl HelloTriangleApplication {
             .polygon_mode_fill() // = default
             .line_width(1.0) // = default
             .cull_mode_back()
-            .front_face_clockwise()
+            .front_face_counter_clockwise() // = default
             // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
             .blend_pass_through() // = default
             .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
@@ -498,21 +501,26 @@ impl HelloTriangleApplication {
         buffer
     }
 
-    fn create_uniform_buffer(device: &Arc<Device>) -> CpuBufferPool<UniformBufferObject> {
-        CpuBufferPool::uniform_buffer(device.clone())
+    fn create_uniform_buffers(device: &Arc<Device>, swap_chain_length: u32) -> Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>> {
+        (0..swap_chain_length).map(|_| {
+            unsafe {
+                CpuAccessibleBuffer::uninitialized(device.clone(), BufferUsage::uniform_buffer()).unwrap()
+            }
+        }).collect()
     }
 
     fn create_command_buffers(&mut self) {
         let queue_family = self.graphics_queue.family();
         self.command_buffers = self.swap_chain_framebuffers.iter()
-            .map(|framebuffer| {
+            .enumerate()
+            .map(|(i, framebuffer)| {
                 Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device.clone(), queue_family)
                     .unwrap()
                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                     .unwrap()
                     .draw_indexed(self.graphics_pipeline.clone(), &DynamicState::none(),
                         vec![self.vertex_buffer.clone()],
-                        self.index_buffer.clone(), (), ())
+                        self.index_buffer.clone(), self.descriptor_sets[i].clone(), ())
                     .unwrap()
                     .end_render_pass()
                     .unwrap()
@@ -622,7 +630,7 @@ impl HelloTriangleApplication {
             Err(err) => panic!("{:?}", err)
         };
 
-        self.update_uniform_buffer();
+        self.update_uniform_buffer(image_index);
 
         let command_buffer = self.command_buffers[image_index].clone();
 
@@ -663,7 +671,7 @@ impl HelloTriangleApplication {
         self.create_command_buffers();
     }
 
-    fn update_uniform_buffer(&self) -> CpuBufferPoolSubbuffer<UniformBufferObject, Arc<StdMemoryPool>> {
+    fn update_uniform_buffer(&mut self, current_image: usize) {
         let elapsed = self.start_time.elapsed();
         let time = elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
         let [width, height] = self.swap_chain.dimensions();
@@ -674,7 +682,28 @@ impl HelloTriangleApplication {
         };
         ubo.proj[1][1] *= -1.0;
 
-        self.uniform_buffer_pool.next(ubo).unwrap()
+        if let Ok(mut write_lock) = self.uniform_buffers[current_image].write() {
+            *write_lock = ubo;
+            println!(".")
+        } else {
+            println!("-");
+            // unsafe { self.device.wait().unwrap() }
+        }
+        // *self.uniform_buffers[current_image].write().unwrap() = ubo;
+    }
+
+    fn create_descriptor_sets(
+        swap_chain_length: usize,
+        pipeline: &Arc<GraphicsPipelineAbstract + Send + Sync>,
+        uniform_buffers: &Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>
+    ) -> Vec<Arc<DescriptorSet + Send + Sync>> {
+        (0..swap_chain_length).map(|i| {
+            let set: Arc<DescriptorSet + Send + Sync> = Arc::new(
+                PersistentDescriptorSet::start(pipeline.clone(), 0)
+                    .add_buffer(uniform_buffers[i].clone()).unwrap()
+                    .build().unwrap());
+            set
+        }).collect()
     }
 }
 
