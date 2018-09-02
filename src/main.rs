@@ -9,6 +9,7 @@ extern crate cgmath;
 use std::sync::Arc;
 use std::time::Instant;
 use std::collections::HashSet;
+use std::io::{stdout, Write};
 
 use winit::{EventsLoop, WindowBuilder, Window, dpi::LogicalSize, Event, WindowEvent};
 use vulkano_win::VkSurfaceBuild;
@@ -268,6 +269,7 @@ impl HelloTriangleApplication {
 
     fn check_validation_layer_support() -> bool {
         let layers: Vec<_> = layers_list().unwrap().map(|l| l.name().to_owned()).collect();
+        println!("{:?}", layers);
         VALIDATION_LAYERS.iter()
             .all(|layer_name| layers.contains(&layer_name.to_string()))
     }
@@ -338,13 +340,13 @@ impl HelloTriangleApplication {
     }
 
     fn choose_swap_present_mode(available_present_modes: SupportedPresentModes) -> PresentMode {
-        if available_present_modes.mailbox {
-            PresentMode::Mailbox
-        } else if available_present_modes.immediate {
-            PresentMode::Immediate
-        } else {
+        // if available_present_modes.mailbox {
+        //     PresentMode::Mailbox
+        // } else if available_present_modes.immediate {
+        //     PresentMode::Immediate
+        // } else {
             PresentMode::Fifo
-        }
+        // }
     }
 
     fn choose_swap_extent(capabilities: &Capabilities) -> [u32; 2] {
@@ -375,6 +377,7 @@ impl HelloTriangleApplication {
 
         let surface_format = Self::choose_swap_surface_format(&capabilities.supported_formats);
         let present_mode = Self::choose_swap_present_mode(capabilities.present_modes);
+        println!("{:?}", present_mode);
         let extent = Self::choose_swap_extent(&capabilities);
 
         let mut image_count = capabilities.min_image_count + 1;
@@ -600,6 +603,8 @@ impl HelloTriangleApplication {
         loop {
             self.draw_frame();
 
+            stdout().flush().unwrap();
+
             let mut done = false;
             self.events_loop.poll_events(|ev| {
                 match ev {
@@ -614,6 +619,7 @@ impl HelloTriangleApplication {
     }
 
     fn draw_frame(&mut self) {
+        print!(".");
         self.previous_frame_end.as_mut().unwrap().cleanup_finished();
 
         if self.recreate_swap_chain {
@@ -684,9 +690,9 @@ impl HelloTriangleApplication {
 
         if let Ok(mut write_lock) = self.uniform_buffers[current_image].write() {
             *write_lock = ubo;
-            println!(".")
+            // print!(".");
         } else {
-            println!("-");
+            print!("-");
             // unsafe { self.device.wait().unwrap() }
         }
         // *self.uniform_buffers[current_image].write().unwrap() = ubo;
