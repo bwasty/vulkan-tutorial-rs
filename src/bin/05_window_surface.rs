@@ -15,10 +15,9 @@ use vulkano::instance::{
     Version,
     layers_list,
     PhysicalDevice,
-    Features
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
-use vulkano::device::{Device, DeviceExtensions, Queue};
+use vulkano::device::{Device, DeviceExtensions, Queue, Features};
 use vulkano::swapchain::{
     Surface,
 };

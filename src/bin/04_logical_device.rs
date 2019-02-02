@@ -13,10 +13,9 @@ use vulkano::instance::{
     Version,
     layers_list,
     PhysicalDevice,
-    Features
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
-use vulkano::device::{Device, DeviceExtensions, Queue};
+use vulkano::device::{Device, DeviceExtensions, Queue, Features};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
