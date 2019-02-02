@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate vulkano;
 #[macro_use]
-extern crate vulkano_shader_derive;
 extern crate vulkano_win;
 extern crate winit;
 
@@ -18,10 +17,9 @@ use vulkano::instance::{
     Version,
     layers_list,
     PhysicalDevice,
-    Features
 };
 use vulkano::instance::debug::{DebugCallback, MessageTypes};
-use vulkano::device::{Device, DeviceExtensions, Queue};
+use vulkano::device::{Device, DeviceExtensions, Queue, Features};
 use vulkano::swapchain::{
     Surface,
     Capabilities,
@@ -392,20 +390,18 @@ impl HelloTriangleApplication {
         swap_chain_extent: [u32; 2],
         render_pass: &Arc<RenderPassAbstract + Send + Sync>,
     ) -> Arc<GraphicsPipelineAbstract + Send + Sync> {
-        #[allow(unused)]
         mod vertex_shader {
-            #[derive(VulkanoShader)]
-            #[ty = "vertex"]
-            #[path = "src/bin/17_shader_vertexbuffer.vert"]
-            struct Dummy;
+            vulkano_shaders::shader! {
+               ty: "vertex",
+               path: "src/bin/17_shader_vertexbuffer.vert"
+            }
         }
 
-        #[allow(unused)]
         mod fragment_shader {
-            #[derive(VulkanoShader)]
-            #[ty = "fragment"]
-            #[path = "src/bin/17_shader_vertexbuffer.frag"]
-            struct Dummy;
+            vulkano_shaders::shader! {
+                ty: "fragment",
+                path: "src/bin/17_shader_vertexbuffer.frag"
+            }
         }
 
         let vert_shader_module = vertex_shader::Shader::load(device.clone())
