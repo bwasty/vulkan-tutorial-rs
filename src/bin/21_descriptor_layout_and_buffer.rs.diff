@@ -1,0 +1,188 @@
+--- a/20_index_buffer.rs
++++ b/21_descriptor_layout_and_buffer.rs
+@@ -5,6 +5,7 @@ extern crate winit;
+ 
+ use std::sync::Arc;
+ use std::collections::HashSet;
++use std::time::Instant;
+ 
+ use winit::{EventsLoop, WindowBuilder, Window, dpi::LogicalSize, Event, WindowEvent};
+ use vulkano_win::VkSurfaceBuild;
+@@ -54,6 +55,7 @@ use vulkano::buffer::{
+     BufferUsage,
+     BufferAccess,
+     TypedBufferAccess,
++    CpuAccessibleBuffer,
+ };
+ 
+ const WIDTH: u32 = 800;
+@@ -102,6 +104,13 @@ impl Vertex {
+ }
+ impl_vertex!(Vertex, pos, color);
+ 
++#[derive(Copy, Clone)]
++struct UniformBufferObject {
++    model: glm::Mat4,
++    view: glm::Mat4,
++    proj: glm::Mat4,
++}
++
+ fn vertices() -> [Vertex; 4] {
+     [
+         Vertex::new([-0.5, -0.5], [1.0, 0.0, 0.0]),
+@@ -139,10 +148,14 @@ struct HelloTriangleApplication {
+ 
+     vertex_buffer: Arc<BufferAccess + Send + Sync>,
+     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
++    uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
++
+     command_buffers: Vec<Arc<AutoCommandBuffer>>,
+ 
+     previous_frame_end: Option<Box<GpuFuture>>,
+     recreate_swap_chain: bool,
++
++    start_time: Instant,
+ }
+ 
+ impl HelloTriangleApplication {
+@@ -159,12 +172,16 @@ impl HelloTriangleApplication {
+             &device, &graphics_queue, &present_queue, None);
+ 
+         let render_pass = Self::create_render_pass(&device, swap_chain.format());
++
+         let graphics_pipeline = Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
+ 
+         let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
+ 
++        let start_time = Instant::now();
++
+         let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
+         let index_buffer = Self::create_index_buffer(&graphics_queue);
++        let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
+ 
+         let previous_frame_end = Some(Self::create_sync_objects(&device));
+ 
+@@ -191,10 +208,14 @@ impl HelloTriangleApplication {
+ 
+             vertex_buffer,
+             index_buffer,
++            uniform_buffers,
++
+             command_buffers: vec![],
+ 
+             previous_frame_end,
+             recreate_swap_chain: false,
++
++            start_time
+         };
+ 
+         app.create_command_buffers();
+@@ -401,14 +422,14 @@ impl HelloTriangleApplication {
+         mod vertex_shader {
+             vulkano_shaders::shader! {
+                ty: "vertex",
+-               path: "src/bin/17_shader_vertexbuffer.vert"
++               path: "src/bin/21_shader_uniformbuffer.vert"
+             }
+         }
+ 
+         mod fragment_shader {
+             vulkano_shaders::shader! {
+                 ty: "fragment",
+-                path: "src/bin/17_shader_vertexbuffer.frag"
++                path: "src/bin/21_shader_uniformbuffer.frag"
+             }
+         }
+ 
+@@ -477,6 +498,31 @@ impl HelloTriangleApplication {
+         buffer
+     }
+ 
++    fn create_uniform_buffers(
++        device: &Arc<Device>,
++        num_buffers: usize,
++        start_time: Instant,
++        dimensions_u32: [u32; 2]
++    ) -> Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>> {
++        let mut buffers = Vec::new();
++
++        let dimensions = [dimensions_u32[0] as f32, dimensions_u32[1] as f32];
++
++        let uniform_buffer = Self::update_uniform_buffer(start_time, dimensions);
++
++        for _ in 0..num_buffers {
++            let buffer = CpuAccessibleBuffer::from_data(
++                device.clone(),
++                BufferUsage::uniform_buffer_transfer_destination(),
++                uniform_buffer,
++            ).unwrap();
++
++            buffers.push(buffer);
++        }
++
++        buffers
++    }
++
+     fn create_command_buffers(&mut self) {
+         let queue_family = self.graphics_queue.family();
+         self.command_buffers = self.swap_chain_framebuffers.iter()
+@@ -485,9 +531,13 @@ impl HelloTriangleApplication {
+                     .unwrap()
+                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
+                     .unwrap()
+-                    .draw_indexed(self.graphics_pipeline.clone(), &DynamicState::none(),
++                    .draw_indexed(
++                        self.graphics_pipeline.clone(),
++                        &DynamicState::none(),
+                         vec![self.vertex_buffer.clone()],
+-                        self.index_buffer.clone(), (), ())
++                        self.index_buffer.clone(),
++                        (),
++                        ())
+                     .unwrap()
+                     .end_render_pass()
+                     .unwrap()
+@@ -623,6 +673,36 @@ impl HelloTriangleApplication {
+         }
+     }
+ 
++    fn update_uniform_buffer(start_time: Instant, dimensions: [f32; 2]) -> UniformBufferObject {
++        let duration = Instant::now().duration_since(start_time);
++        let elapsed = (duration.as_secs() * 1000) + duration.subsec_millis() as u64;
++
++        let identity_matrix = glm::mat4(
++            1.0, 0.0, 0.0, 0.0,
++            0.0, 1.0, 0.0, 0.0,
++            0.0, 0.0, 1.0, 0.0,
++            0.0, 0.0, 0.0, 1.0,
++        );
++
++        let model = glm::ext::rotate(&identity_matrix, (elapsed as f32) * glm::radians(0.180), glm::vec3(0.0, 0.0, 1.00));
++
++        let view = glm::ext::look_at(
++            glm::vec3(2.0, 2.0, 2.0),
++            glm::vec3(0.0, 0.0, 0.0),
++            glm::vec3(0.0, 0.0, 1.0)
++        );
++        let mut proj = glm::ext::perspective(
++            glm::radians(45.0,),
++            dimensions[0] as f32 / dimensions[1] as f32,
++            0.1,
++            10.0
++        );
++
++        proj.c1.y *= -1.0;
++
++        UniformBufferObject { model, view, proj }
++    }
++
+     fn recreate_swap_chain(&mut self) {
+         let (swap_chain, images) = Self::create_swap_chain(&self.instance, &self.surface, self.physical_device_index,
+             &self.device, &self.graphics_queue, &self.present_queue, Some(self.swap_chain.clone()));
+@@ -640,4 +720,4 @@ impl HelloTriangleApplication {
+ fn main() {
+     let mut app = HelloTriangleApplication::initialize();
+     app.main_loop();
+-}
++}
+\ No newline at end of file
