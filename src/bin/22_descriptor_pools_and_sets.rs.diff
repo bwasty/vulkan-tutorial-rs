@@ -1,0 +1,131 @@
+--- a/21_descriptor_layout_and_buffer.rs
++++ b/22_descriptor_pools_and_sets.rs
+@@ -3,7 +3,7 @@ extern crate vulkano;
+ extern crate vulkano_win;
+ extern crate winit;
+ 
+-use std::sync::Arc;
++use std::sync::{Arc, Mutex};
+ use std::collections::HashSet;
+ use std::time::Instant;
+ 
+@@ -55,7 +55,11 @@ use vulkano::buffer::{
+     BufferUsage,
+     BufferAccess,
+     TypedBufferAccess,
+-    CpuAccessibleBuffer,
++    CpuAccessibleBuffer
++};
++use vulkano::descriptor::descriptor_set::{
++    FixedSizeDescriptorSetsPool,
++    FixedSizeDescriptorSet
+ };
+ 
+ const WIDTH: u32 = 800;
+@@ -150,6 +154,8 @@ struct HelloTriangleApplication {
+     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
+     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
+ 
++    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>,
++
+     command_buffers: Vec<Arc<AutoCommandBuffer>>,
+ 
+     previous_frame_end: Option<Box<GpuFuture>>,
+@@ -183,6 +189,9 @@ impl HelloTriangleApplication {
+         let index_buffer = Self::create_index_buffer(&graphics_queue);
+         let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
+ 
++        let descriptor_sets_pool = Self::create_descriptor_pool(&graphics_pipeline);
++        let descriptor_sets = Self::create_descriptor_sets(&descriptor_sets_pool, &uniform_buffers);
++
+         let previous_frame_end = Some(Self::create_sync_objects(&device));
+ 
+         let mut app = Self {
+@@ -210,6 +219,8 @@ impl HelloTriangleApplication {
+             index_buffer,
+             uniform_buffers,
+ 
++            descriptor_sets,
++
+             command_buffers: vec![],
+ 
+             previous_frame_end,
+@@ -457,7 +468,7 @@ impl HelloTriangleApplication {
+             .polygon_mode_fill() // = default
+             .line_width(1.0) // = default
+             .cull_mode_back()
+-            .front_face_clockwise()
++            .front_face_counter_clockwise()
+             // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
+             .blend_pass_through() // = default
+             .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
+@@ -523,12 +534,50 @@ impl HelloTriangleApplication {
+         buffers
+     }
+ 
++    fn create_descriptor_pool(graphics_pipeline: &Arc<GraphicsPipelineAbstract + Send + Sync>)
++        -> Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>
++    {
++        Arc::new(
++            Mutex::new(
++                FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0)
++            )
++        )
++    }
++
++    fn create_descriptor_sets(
++        pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
++        uniform_buffers: &Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
++    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>
++    {
++        uniform_buffers
++            .iter()
++            .map(|uniform_buffer|
++                Arc::new(
++                    pool
++                        .lock()
++                        .unwrap()
++                        .next()
++                        .add_buffer(uniform_buffer.clone())
++                        .unwrap()
++                        .build()
++                        .unwrap()
++                )
++            )
++            .collect()
++    }
++
+     fn create_command_buffers(&mut self) {
+         let queue_family = self.graphics_queue.family();
+-        self.command_buffers = self.swap_chain_framebuffers.iter()
+-            .map(|framebuffer| {
++        let dimensions = [self.swap_chain.dimensions()[0] as f32, self.swap_chain.dimensions()[1] as f32];
++
++        self.command_buffers = self.swap_chain_framebuffers
++            .iter()
++            .enumerate()
++            .map(|(i, framebuffer)| {
+                 Arc::new(AutoCommandBufferBuilder::primary_simultaneous_use(self.device.clone(), queue_family)
+                     .unwrap()
++                    .update_buffer(self.uniform_buffers[i].clone(), Self::update_uniform_buffer(self.start_time, dimensions))
++                    .unwrap()
+                     .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
+                     .unwrap()
+                     .draw_indexed(
+@@ -536,7 +585,7 @@ impl HelloTriangleApplication {
+                         &DynamicState::none(),
+                         vec![self.vertex_buffer.clone()],
+                         self.index_buffer.clone(),
+-                        (),
++                        self.descriptor_sets[i].clone(),
+                         ())
+                     .unwrap()
+                     .end_render_pass()
+@@ -615,6 +664,7 @@ impl HelloTriangleApplication {
+     #[allow(unused)]
+     fn main_loop(&mut self) {
+         loop {
++            self.create_command_buffers();
+             self.draw_frame();
+ 
+             let mut done = false;
