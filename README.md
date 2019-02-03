@@ -39,7 +39,7 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
     * [Vertex buffer creation](#vertex-buffer-creation)
     * [Staging buffer](#staging-buffer)
     * [Index buffer](#index-buffer)
-* [Uniform buffers (<em>TODO</em>)](#uniform-buffers-todo)
+* [Uniform buffers](#uniform-buffers)
 * [Texture mapping (<em>TODO</em>)](#texture-mapping-todo)
 * [Depth buffering (<em>TODO</em>)](#depth-buffering-todo)
 * [Loading models (<em>TODO</em>)](#loading-models-todo)
@@ -332,7 +332,26 @@ https://vulkan-tutorial.com/Vertex_buffers/Index_buffer
 
 [Diff](src/bin/20_index_buffer.rs.diff) / [Complete code](src/bin/20_index_buffer.rs)
 
-## Uniform buffers (*TODO*)
+## Uniform buffers
+### Uniform Buffer Object
+https://vulkan-tutorial.com/Uniform_buffers
+
+In this section we change the vertex shader to take a uniform buffer object consisting of a model, view, and projection matrix.
+The shader now outputs the final position as the result of multiplying these three matrices with the original vertex position.
+
+We add a new type of buffer, the CpuAccessibleBuffer, which allows us to update its contents without needing to rebuild
+the entire buffer. In order to actually be able to write to this buffer we need to specify its usage as a uniform buffer and
+also the destination of a memory transfer.
+
+Note that unlike the original tutorial we did **not** need to create any layout binding. This is handled internally by vulkano when creating
+a descriptor set, as we'll see in the next section.
+
+At this point our program will compile and run but immediately panic because we specify a binding in our shader but do not
+include a matching descriptor set. 
+
+[Vertex Shader Diff](src/bin/21_shader_uniformbuffer.vert.diff) / [Vertex Shader](src/bin/21_shader_uniformbuffer.vert)
+
+[Diff](src/bin/21_descriptor_layout_and_buffer.rs) / [Complete code](src/bin/21_descriptor_layout_and_buffer.rs)
 ## Texture mapping (*TODO*)
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)
