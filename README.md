@@ -353,6 +353,22 @@ include a matching descriptor set.
 [Vertex Shader Diff](src/bin/21_shader_uniformbuffer.vert.diff) / [Vertex Shader](src/bin/21_shader_uniformbuffer.vert)
 
 [Diff](src/bin/21_descriptor_layout_and_buffer.rs.diff) / [Complete code](src/bin/21_descriptor_layout_and_buffer.rs)
+
+### Descriptor Pool and Sets
+https://vulkan-tutorial.com/Uniform_buffers/Descriptor_pool_and_sets
+
+In this section we introduce a new resource, Descriptor Sets, which allow us to specify what buffer resources to transfer to the GPU.
+In the last section we made a change to our vertex shader to expect a buffer in binding 0 and descriptor sets allow us to specify
+the actual memory that will occupy that binding.
+
+For each uniform buffer we created in the last section, we create a descriptor set with the buffer bound to it, giving us the same
+number of descriptor sets as swap chain images. At the beginning of each frame we now recreate the command buffer, which 
+includes a new command to copy our updated UniformBufferObject into the respective uniform buffer before the render pass.
+
+Note that due to the flipping of the Y axis in the projection matrix, we now need to tell vulkan to draw the vertices in
+the opposite direction.
+
+[Diff](src/bin/22_descriptor_pools_and_sets.rs.diff) / [Complete code](src/bin/22_descriptor_pools_and_sets.rs)
 ## Texture mapping (*TODO*)
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)
