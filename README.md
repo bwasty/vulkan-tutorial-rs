@@ -97,7 +97,7 @@ impl HelloTriangleApplication {
 }
 
 fn main() {
-    let mut app = HelloTriangleApplication::new();
+    let mut app = HelloTriangleApplication::initialize();
     app.main_loop();
 }
 ```
