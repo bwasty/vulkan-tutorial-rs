@@ -58,11 +58,13 @@ use vulkano::command_buffer::{
 use vulkano::buffer::{
     immutable::ImmutableBuffer,
     cpu_access::CpuAccessibleBuffer,
+    cpu_pool::{CpuBufferPool, CpuBufferPoolSubbuffer},
     BufferUsage,
     BufferAccess,
     TypedBufferAccess,
 };
 use vulkano::descriptor::descriptor_set::{DescriptorSet, PersistentDescriptorSet};
+use vulkano::memory::pool::StdMemoryPool;
 
 use cgmath::{Matrix4, Deg, Rad, Vector3, perspective};
 
@@ -166,7 +168,10 @@ struct HelloTriangleApplication {
 
     vertex_buffer: Arc<BufferAccess + Send + Sync>,
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
+
     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
+    uniform_buffer_pool: CpuBufferPool<UniformBufferObject>,
+
     descriptor_sets: Vec<Arc<DescriptorSet + Send + Sync>>,
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
@@ -197,6 +202,7 @@ impl HelloTriangleApplication {
         let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
         let index_buffer = Self::create_index_buffer(&graphics_queue);
         let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain.num_images());
+        let uniform_buffer_pool = CpuBufferPool::uniform_buffer(device.clone());
 
         let descriptor_sets = Self::create_descriptor_sets(swap_chain_images.len(),
             &graphics_pipeline, &uniform_buffers);
@@ -226,7 +232,10 @@ impl HelloTriangleApplication {
 
             vertex_buffer,
             index_buffer,
+
             uniform_buffers,
+            uniform_buffer_pool,
+
             descriptor_sets,
             command_buffers: vec![],
 
@@ -677,7 +686,7 @@ impl HelloTriangleApplication {
         self.create_command_buffers();
     }
 
-    fn update_uniform_buffer(&mut self, current_image: usize) {
+    fn update_uniform_buffer(&mut self, _current_image: usize) -> CpuBufferPoolSubbuffer<UniformBufferObject, Arc<StdMemoryPool>>  {
         let elapsed = self.start_time.elapsed();
         let time = elapsed.as_secs() as f64 + elapsed.subsec_nanos() as f64 / 1_000_000_000.0;
         let [width, height] = self.swap_chain.dimensions();
@@ -688,14 +697,15 @@ impl HelloTriangleApplication {
         };
         ubo.proj[1][1] *= -1.0;
 
-        if let Ok(mut write_lock) = self.uniform_buffers[current_image].write() {
-            *write_lock = ubo;
-            // print!(".");
-        } else {
-            print!("-");
-            // unsafe { self.device.wait().unwrap() }
-        }
-        // *self.uniform_buffers[current_image].write().unwrap() = ubo;
+        // if let Ok(mut write_lock) = self.uniform_buffers[current_image].write() {
+        //     *write_lock = ubo;
+        //     // print!(".");
+        // } else {
+        //     print!("-");
+        //     // unsafe { self.device.wait().unwrap() }
+        // }
+
+        self.uniform_buffer_pool.next(ubo).unwrap()
     }
 
     fn create_descriptor_sets(
