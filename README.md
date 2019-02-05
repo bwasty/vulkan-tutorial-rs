@@ -386,6 +386,20 @@ and Vulkano includes a function to create a simple linear sampler.
 
 [Diff](src/bin/24_image_sampler.rs.diff) / [Complete code](src/bin/24_image_sampler.rs)
 
+### Combined image sampler
+https://vulkan-tutorial.com/Texture_mapping/Combined_image_sampler
+
+In this section we update our Vertex type to include texel coordinates, update our vertex shader to expect this information,
+and update our fragment shader to receive a texture sampler to actually render our image.
+
+Since we have a new binding in our fragment shader we need to update our descriptor set to match this binding so we add a call
+to add a sampled image and pass in the texture image and image sampler we created in the previous sections.
+
+[Vertex shader diff](src/bin/25_shader_texturesampler.vert.diff) / [Vertex shader code](src/bin/25_shader_texturesampler.vert)
+
+[Fragment shader diff](src/bin/25_shader_texturesampler.frag.diff) / [Fragment shader code](src/bin/25_shader_texturesampler.frag)
+
+[Diff](src/bin/25_combined_image_sampler.rs.diff) / [Complete code](src/bin/25_combined_image_sampler.rs)
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)
 ## Generating Mipmaps (*TODO*)
