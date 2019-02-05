@@ -1,34 +1,25 @@
 --- a/08_graphics_pipeline.rs
 +++ b/09_shader_modules.rs
-@@ -1,4 +1,6 @@
- extern crate vulkano;
-+#[macro_use]
-+extern crate vulkano_shader_derive;
- extern crate vulkano_win;
- extern crate winit;
- 
-@@ -291,8 +293,29 @@ impl HelloTriangleApplication {
+@@ -290,8 +290,27 @@ impl HelloTriangleApplication {
          (swap_chain, images)
      }
  
--    fn create_graphics_pipeline(device: &Arc<Device>) {
+-    fn create_graphics_pipeline(_device: &Arc<Device>) {
 +    fn create_graphics_pipeline(
 +        device: &Arc<Device>,
 +    ) {
-+        #[allow(unused)]
 +        mod vertex_shader {
-+            #[derive(VulkanoShader)]
-+            #[ty = "vertex"]
-+            #[path = "src/bin/09_shader_base.vert"]
-+            struct Dummy;
++            vulkano_shaders::shader! {
++               ty: "vertex",
++               path: "src/bin/09_shader_base.vert"
++            }
 +        }
 +
-+        #[allow(unused)]
 +        mod fragment_shader {
-+            #[derive(VulkanoShader)]
-+            #[ty = "fragment"]
-+            #[path = "src/bin/09_shader_base.frag"]
-+            struct Dummy;
++            vulkano_shaders::shader! {
++                ty: "fragment",
++                path: "src/bin/09_shader_base.frag"
++            }
 +        }
  
 +        let _vert_shader_module = vertex_shader::Shader::load(device.clone())

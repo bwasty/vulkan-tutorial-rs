@@ -1,6 +1,6 @@
 --- a/14_command_buffers.rs
 +++ b/15_hello_triangle.rs
-@@ -30,10 +30,11 @@ use vulkano::swapchain::{
+@@ -27,10 +27,11 @@ use vulkano::swapchain::{
      PresentMode,
      Swapchain,
      CompositeAlpha,
@@ -13,7 +13,7 @@
  use vulkano::pipeline::{
      GraphicsPipeline,
      vertex::BufferlessDefinition,
-@@ -507,6 +508,8 @@ impl HelloTriangleApplication {
+@@ -502,6 +503,8 @@ impl HelloTriangleApplication {
      #[allow(unused)]
      fn main_loop(&mut self) {
          loop {
@@ -22,7 +22,7 @@
              let mut done = false;
              self.events_loop.poll_events(|ev| {
                  match ev {
-@@ -519,9 +522,24 @@ impl HelloTriangleApplication {
+@@ -514,9 +517,24 @@ impl HelloTriangleApplication {
              }
          }
      }

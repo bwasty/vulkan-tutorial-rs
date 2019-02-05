@@ -67,7 +67,7 @@ $ cargo new vulkan-tutorial-rs
 Then add this to your `Cargo.toml`:
 ```
 [dependencies]
-vulkano = "0.10.0"
+vulkano = "0.11.1"
 ```
 
 On macOS, copy [mac-env.sh](mac-env.sh), adapt the `VULKAN_SDK` path if necessary and `source` the file in your terminal. See also [vulkano-rs/vulkano#macos-and-ios-setup](https://github.com/vulkano-rs/vulkano#macos-and-ios-setup).
@@ -110,7 +110,7 @@ Instead of GLFW we're using [winit](https://github.com/tomaka/winit), an alterna
 
 Add this to your Cargo.toml:
 ```
-winit = "0.17.1"
+winit = "0.18.0"
 ```
 And extend your main.rs:
 ```rust
@@ -168,7 +168,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Instance
 
 Cargo.toml:
 ```
-vulkano-win = "0.10.0"
+vulkano-win = "0.11.1"
 ```
 main.rs:
 ```rust
@@ -264,7 +264,7 @@ https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics
 #### Shader Modules
 https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Shader_modules
 
-Instead of compiling the shaders to SPIR-V manually and loading them at runtime, we'll use [vulkano-shader-derive](https://docs.rs/crate/vulkano-shader-derive/) to do the same at compile-time. Loading them at runtime is also possible, but a bit more invovled - see the [runtime shader](https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/runtime-shader/main.rs) example of Vulkano.
+Instead of compiling the shaders to SPIR-V manually and loading them at runtime, we'll use [vulkano_shaders](https://docs.rs/vulkano-shaders/0.11.1/vulkano_shaders) to do the same at compile-time. Loading them at runtime is also possible, but a bit more invovled - see the [runtime shader](https://github.com/vulkano-rs/vulkano/blob/master/examples/src/bin/runtime-shader/main.rs) example of Vulkano.
 
 [Diff](src/bin/09_shader_modules.rs.diff) / [Rust code](src/bin/09_shader_modules.rs) / [Vertex shader](src/bin/09_shader_base.vert) / [Fragment shader](src/bin/09_shader_base.frag)
 

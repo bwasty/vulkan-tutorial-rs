@@ -1,7 +1,7 @@
 --- a/05_window_surface.rs
 +++ b/06_swap_chain_creation.rs
-@@ -21,7 +21,16 @@ use vulkano::instance::debug::{DebugCallback, MessageTypes};
- use vulkano::device::{Device, DeviceExtensions, Queue};
+@@ -20,7 +20,16 @@ use vulkano::instance::debug::{DebugCallback, MessageTypes};
+ use vulkano::device::{Device, DeviceExtensions, Queue, Features};
  use vulkano::swapchain::{
      Surface,
 +    Capabilities,
@@ -17,7 +17,7 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -30,6 +39,14 @@ const VALIDATION_LAYERS: &[&str] =  &[
+@@ -29,6 +38,14 @@ const VALIDATION_LAYERS: &[&str] =  &[
      "VK_LAYER_LUNARG_standard_validation"
  ];
  
@@ -32,7 +32,7 @@
  #[cfg(all(debug_assertions))]
  const ENABLE_VALIDATION_LAYERS: bool = true;
  #[cfg(not(debug_assertions))]
-@@ -62,6 +79,9 @@ struct HelloTriangleApplication {
+@@ -61,6 +78,9 @@ struct HelloTriangleApplication {
  
      graphics_queue: Arc<Queue>,
      present_queue: Arc<Queue>,
@@ -42,7 +42,7 @@
  }
  
  impl HelloTriangleApplication {
-@@ -74,6 +94,9 @@ impl HelloTriangleApplication {
+@@ -73,6 +93,9 @@ impl HelloTriangleApplication {
          let (device, graphics_queue, present_queue) = Self::create_logical_device(
              &instance, &surface, physical_device_index);
  
@@ -52,7 +52,7 @@
          Self {
              instance,
              debug_callback,
-@@ -86,6 +109,9 @@ impl HelloTriangleApplication {
+@@ -85,6 +108,9 @@ impl HelloTriangleApplication {
  
              graphics_queue,
              present_queue,
@@ -62,7 +62,7 @@
          }
      }
  
-@@ -157,7 +183,110 @@ impl HelloTriangleApplication {
+@@ -156,7 +182,110 @@ impl HelloTriangleApplication {
  
      fn is_device_suitable(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> bool {
          let indices = Self::find_queue_families(surface, device);
@@ -174,7 +174,7 @@
      }
  
      fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
-@@ -202,7 +331,7 @@ impl HelloTriangleApplication {
+@@ -201,7 +330,7 @@ impl HelloTriangleApplication {
          // for us internally.
  
          let (device, mut queues) = Device::new(physical_device, &Features::none(),
