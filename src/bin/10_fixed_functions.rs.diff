@@ -1,6 +1,6 @@
---- a/09_shader_modules.rs
+--- a/./09_shader_modules.rs
 +++ b/10_fixed_functions.rs
-@@ -33,6 +33,11 @@ use vulkano::swapchain::{
+@@ -30,6 +30,11 @@ use vulkano::swapchain::{
  use vulkano::format::Format;
  use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
  use vulkano::sync::SharingMode;
@@ -12,7 +12,7 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -99,7 +104,7 @@ impl HelloTriangleApplication {
+@@ -96,7 +101,7 @@ impl HelloTriangleApplication {
          let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
              &device, &graphics_queue, &present_queue);
  
@@ -21,16 +21,16 @@
  
          Self {
              instance,
-@@ -295,6 +300,7 @@ impl HelloTriangleApplication {
+@@ -292,6 +297,7 @@ impl HelloTriangleApplication {
  
      fn create_graphics_pipeline(
          device: &Arc<Device>,
 +        swap_chain_extent: [u32; 2],
      ) {
-         #[allow(unused)]
          mod vertex_shader {
-@@ -312,10 +318,34 @@ impl HelloTriangleApplication {
-             struct Dummy;
+             vulkano_shaders::shader! {
+@@ -307,10 +313,34 @@ impl HelloTriangleApplication {
+             }
          }
  
 -        let _vert_shader_module = vertex_shader::Shader::load(device.clone())

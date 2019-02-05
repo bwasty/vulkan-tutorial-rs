@@ -12,17 +12,17 @@
  
  use vulkano::instance::{
      Instance,
-@@ -17,6 +19,9 @@ use vulkano::instance::{
+@@ -16,6 +18,9 @@ use vulkano::instance::{
  };
  use vulkano::instance::debug::{DebugCallback, MessageTypes};
- use vulkano::device::{Device, DeviceExtensions, Queue};
+ use vulkano::device::{Device, DeviceExtensions, Queue, Features};
 +use vulkano::swapchain::{
 +    Surface,
 +};
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -32,14 +37,15 @@ const ENABLE_VALIDATION_LAYERS: bool = false;
+@@ -31,14 +36,15 @@ const ENABLE_VALIDATION_LAYERS: bool = false;
  
  struct QueueFamilyIndices {
      graphics_family: i32,
@@ -40,7 +40,7 @@
      }
  }
  
-@@ -49,46 +55,40 @@ struct HelloTriangleApplication {
+@@ -48,46 +54,40 @@ struct HelloTriangleApplication {
      debug_callback: Option<DebugCallback>,
  
      events_loop: EventsLoop,
@@ -95,7 +95,7 @@
      fn create_instance() -> Arc<Instance> {
          if ENABLE_VALIDATION_LAYERS && !Self::check_validation_layer_support() {
              println!("Validation layers requested, but not available!")
-@@ -149,18 +149,18 @@ impl HelloTriangleApplication {
+@@ -148,18 +148,18 @@ impl HelloTriangleApplication {
          }).ok()
      }
  
@@ -119,7 +119,7 @@
          let mut indices = QueueFamilyIndices::new();
          // TODO: replace index with id to simplify?
          for (i, queue_family) in device.queue_families().enumerate() {
-@@ -168,6 +168,10 @@ impl HelloTriangleApplication {
+@@ -167,6 +167,10 @@ impl HelloTriangleApplication {
                  indices.graphics_family = i as i32;
              }
  
@@ -130,7 +130,7 @@
              if indices.is_complete() {
                  break;
              }
-@@ -178,27 +182,43 @@ impl HelloTriangleApplication {
+@@ -177,27 +181,43 @@ impl HelloTriangleApplication {
  
      fn create_logical_device(
          instance: &Arc<Instance>,

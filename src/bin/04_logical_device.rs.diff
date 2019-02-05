@@ -1,17 +1,14 @@
 --- a/03_physical_device_selection.rs
 +++ b/04_logical_device.rs
-@@ -13,8 +13,10 @@ use vulkano::instance::{
-     Version,
-     layers_list,
+@@ -15,6 +15,7 @@ use vulkano::instance::{
      PhysicalDevice,
-+    Features
  };
  use vulkano::instance::debug::{DebugCallback, MessageTypes};
-+use vulkano::device::{Device, DeviceExtensions, Queue};
++use vulkano::device::{Device, DeviceExtensions, Queue, Features};
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -49,6 +51,9 @@ struct HelloTriangleApplication {
+@@ -49,6 +50,9 @@ struct HelloTriangleApplication {
      events_loop: EventsLoop,
  
      physical_device_index: usize, // can't store PhysicalDevice directly (lifetime issues)
@@ -21,7 +18,7 @@
  }
  
  impl HelloTriangleApplication {
-@@ -59,6 +64,8 @@ impl HelloTriangleApplication {
+@@ -59,6 +63,8 @@ impl HelloTriangleApplication {
          let events_loop = Self::init_window();
  
          let physical_device_index = Self::pick_physical_device(&instance);
@@ -30,7 +27,7 @@
  
          Self {
              instance,
-@@ -67,6 +74,9 @@ impl HelloTriangleApplication {
+@@ -67,6 +73,9 @@ impl HelloTriangleApplication {
              events_loop,
  
              physical_device_index,
@@ -40,7 +37,7 @@
          }
      }
  
-@@ -166,6 +176,31 @@ impl HelloTriangleApplication {
+@@ -166,6 +175,31 @@ impl HelloTriangleApplication {
          indices
      }
  

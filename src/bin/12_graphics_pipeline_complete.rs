@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate vulkano;
-#[macro_use]
 extern crate vulkano_win;
 extern crate winit;
 

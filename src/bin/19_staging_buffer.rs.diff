@@ -1,6 +1,6 @@
 --- a/18_vertex_buffer.rs
 +++ b/19_staging_buffer.rs
-@@ -53,7 +53,7 @@ use vulkano::command_buffer::{
+@@ -50,7 +50,7 @@ use vulkano::command_buffer::{
      DynamicState,
  };
  use vulkano::buffer::{
@@ -9,7 +9,7 @@
      BufferUsage,
      BufferAccess,
  };
-@@ -159,7 +159,7 @@ impl HelloTriangleApplication {
+@@ -156,7 +156,7 @@ impl HelloTriangleApplication {
  
          let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
  
@@ -18,7 +18,7 @@
  
          let previous_frame_end = Some(Self::create_sync_objects(&device));
  
-@@ -455,9 +455,13 @@ impl HelloTriangleApplication {
+@@ -450,9 +450,13 @@ impl HelloTriangleApplication {
          ).collect::<Vec<_>>()
      }
  

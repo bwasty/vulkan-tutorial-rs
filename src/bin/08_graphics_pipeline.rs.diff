@@ -1,6 +1,6 @@
 --- a/06_swap_chain_creation.rs
 +++ b/08_graphics_pipeline.rs
-@@ -97,6 +97,8 @@ impl HelloTriangleApplication {
+@@ -96,6 +96,8 @@ impl HelloTriangleApplication {
          let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
              &device, &graphics_queue, &present_queue);
  
@@ -9,7 +9,7 @@
          Self {
              instance,
              debug_callback,
-@@ -289,6 +291,10 @@ impl HelloTriangleApplication {
+@@ -288,6 +290,10 @@ impl HelloTriangleApplication {
          (swap_chain, images)
      }
  
