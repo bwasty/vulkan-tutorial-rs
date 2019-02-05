@@ -368,7 +368,15 @@ Note that due to the flipping of the Y axis in the projection matrix, we now nee
 the opposite direction.
 
 [Diff](src/bin/22_descriptor_pools_and_sets.rs.diff) / [Complete code](src/bin/22_descriptor_pools_and_sets.rs)
-## Texture mapping (*TODO*)
+## Texture mapping
+### Images
+https://vulkan-tutorial.com/Texture_mapping/Images
+
+This section is much simpler than the C++ counterpart due to the image library we use and Vulkano's internal 
+representation of images. The image library handles converting the image to a buffer in the right format, and then all we
+need to do is pass this buffer into the appropriate constructor.
+
+[Diff](src/bin/23_images.rs.diff) / [Complete code](src/bin/23_images.rs)
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)
 ## Generating Mipmaps (*TODO*)
