@@ -377,6 +377,15 @@ representation of images. The image library handles converting the image to a bu
 need to do is pass this buffer into the appropriate constructor.
 
 [Diff](src/bin/23_images.rs.diff) / [Complete code](src/bin/23_images.rs)
+
+### Image sampler
+https://vulkan-tutorial.com/Texture_mapping/Image_view_and_sampler
+
+This section is incredibly simple. The image we created in the last section includes the functionality of an image view 
+and Vulkano includes a function to create a simple linear sampler.
+
+[Diff](src/bin/24_image_sampler.rs.diff) / [Complete code](src/bin/24_image_sampler.rs)
+
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)
 ## Generating Mipmaps (*TODO*)
