@@ -443,8 +443,9 @@ impl HelloTriangleApplication {
     }
 
     fn find_depth_format() -> Format {
-        // todo -> have this pick based on current device
-        Format::D32Sfloat
+        // this format is guaranteed to be supported by vulkano and as it stands now, I can't figure
+        // how to do the queries performed in the original tutorial in vulkano...
+        Format::D16Unorm
     }
 
     fn create_depth_image(device: &Arc<Device>, dimensions: [u32; 2], format: Format) -> Arc<AttachmentImage<Format>> {
