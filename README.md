@@ -400,7 +400,18 @@ to add a sampled image and pass in the texture image and image sampler we create
 [Fragment shader diff](src/bin/25_shader_texturesampler.frag.diff) / [Fragment shader code](src/bin/25_shader_texturesampler.frag)
 
 [Diff](src/bin/25_combined_image_sampler.rs.diff) / [Complete code](src/bin/25_combined_image_sampler.rs)
-## Depth buffering (*TODO*)
+## Depth buffering
+
+In this section we update our Vertex type to include a third input for depth, add a depth image to our render pass. 
+In the C++ tutorial there is querying to determine the proper depth format but I can't find a similar functionality in Vulkano. 
+If I'm missing something, feel free to let me know. The depth format we use is guaranteed to be supported according to Vulkano docs.
+
+[Vertex shader diff](src/bin/26_shader_depthbuffering.vert.diff) / [Vertex shader code](src/bin/26_shader_depthbuffering.vert)
+
+[Fragment shader diff](src/bin/26_shader_depthbuffering.frag.diff) / [Fragment shader code](src/bin/26_shader_depthbuffering.frag)
+
+[Diff](src/bin/26_depth_buffering.rs.diff) / [Complete code](src/bin/26_depth_buffering.rs)
+
 ## Loading models (*TODO*)
 ## Generating Mipmaps (*TODO*)
 ## Multisampling (*TODO*)

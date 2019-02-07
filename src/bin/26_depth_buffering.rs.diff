@@ -132,8 +132,8 @@
  
 -    fn create_render_pass(device: &Arc<Device>, color_format: Format) -> Arc<RenderPassAbstract + Send + Sync> {
 +    fn find_depth_format() -> Format {
-+        // todo -> have this pick based on current device
-+        Format::D32Sfloat
++        // this format is guaranteed to be supported by vulkano.
++        Format::D16Unorm
 +    }
 +
 +    fn create_depth_image(device: &Arc<Device>, dimensions: [u32; 2], format: Format) -> Arc<AttachmentImage<Format>> {
