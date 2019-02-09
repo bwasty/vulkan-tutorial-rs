@@ -351,7 +351,7 @@ include a matching descriptor set.
 
 [Vertex Shader Diff](src/bin/21_shader_uniformbuffer.vert.diff) / [Vertex Shader](src/bin/21_shader_uniformbuffer.vert)
 
-[Diff](src/bin/21_descriptor_layout_and_buffer.rs) / [Complete code](src/bin/21_descriptor_layout_and_buffer.rs)
+[Diff](src/bin/21_descriptor_layout_and_buffer.rs.diff) / [Complete code](src/bin/21_descriptor_layout_and_buffer.rs)
 ## Texture mapping (*TODO*)
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)
