@@ -1,6 +1,6 @@
 --- a/19_staging_buffer.rs
 +++ b/20_index_buffer.rs
-@@ -56,6 +56,7 @@ use vulkano::buffer::{
+@@ -53,6 +53,7 @@ use vulkano::buffer::{
      immutable::ImmutableBuffer,
      BufferUsage,
      BufferAccess,
@@ -8,7 +8,7 @@
  };
  
  const WIDTH: u32 = 800;
-@@ -104,14 +105,19 @@ impl Vertex {
+@@ -101,14 +102,19 @@ impl Vertex {
  }
  impl_vertex!(Vertex, pos, color);
  
@@ -32,7 +32,7 @@
  struct HelloTriangleApplication {
      instance: Arc<Instance>,
      #[allow(unused)]
-@@ -135,6 +141,7 @@ struct HelloTriangleApplication {
+@@ -132,6 +138,7 @@ struct HelloTriangleApplication {
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
  
      vertex_buffer: Arc<BufferAccess + Send + Sync>,
@@ -40,7 +40,7 @@
      command_buffers: Vec<Arc<AutoCommandBuffer>>,
  
      previous_frame_end: Option<Box<GpuFuture>>,
-@@ -160,6 +167,7 @@ impl HelloTriangleApplication {
+@@ -157,6 +164,7 @@ impl HelloTriangleApplication {
          let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
  
          let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
@@ -48,7 +48,7 @@
  
          let previous_frame_end = Some(Self::create_sync_objects(&device));
  
-@@ -185,6 +193,7 @@ impl HelloTriangleApplication {
+@@ -182,6 +190,7 @@ impl HelloTriangleApplication {
              swap_chain_framebuffers,
  
              vertex_buffer,
@@ -56,7 +56,7 @@
              command_buffers: vec![],
  
              previous_frame_end,
-@@ -464,6 +473,15 @@ impl HelloTriangleApplication {
+@@ -459,6 +468,15 @@ impl HelloTriangleApplication {
          buffer
      }
  
@@ -72,7 +72,7 @@
      fn create_command_buffers(&mut self) {
          let queue_family = self.graphics_queue.family();
          self.command_buffers = self.swap_chain_framebuffers.iter()
-@@ -472,8 +490,9 @@ impl HelloTriangleApplication {
+@@ -467,8 +485,9 @@ impl HelloTriangleApplication {
                      .unwrap()
                      .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                      .unwrap()

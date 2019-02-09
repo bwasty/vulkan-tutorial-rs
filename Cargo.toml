@@ -5,11 +5,11 @@ authors = ["Benjamin Wasty <benny.wasty@gmail.com>"]
 autobins = true
 
 [dependencies]
-vulkano = "0.10.0"
-vulkano-shader-derive = "0.10.0"
-image = "0.19.0"
-vulkano-win = "0.10.0"
-winit = "0.17.1"
+vulkano = "0.11.1"
+vulkano-shaders = "0.11.1"
+image = "0.20.1"
+vulkano-win = "0.11.1"
+winit = "0.18.0"
 
 # [[bin]]
 # name = "main"

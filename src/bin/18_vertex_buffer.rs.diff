@@ -1,6 +1,6 @@
 --- a/16_swap_chain_recreation.rs
 +++ b/18_vertex_buffer.rs
-@@ -38,8 +38,7 @@ use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
+@@ -35,8 +35,7 @@ use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
  use vulkano::sync::{self, SharingMode, GpuFuture};
  use vulkano::pipeline::{
      GraphicsPipeline,
@@ -10,7 +10,7 @@
      viewport::Viewport,
  };
  use vulkano::framebuffer::{
-@@ -48,12 +47,16 @@ use vulkano::framebuffer::{
+@@ -45,12 +44,16 @@ use vulkano::framebuffer::{
      FramebufferAbstract,
      Framebuffer,
  };
@@ -28,7 +28,7 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -89,7 +92,25 @@ impl QueueFamilyIndices {
+@@ -86,7 +89,25 @@ impl QueueFamilyIndices {
      }
  }
  
@@ -55,7 +55,7 @@
  
  struct HelloTriangleApplication {
      instance: Arc<Instance>,
-@@ -109,14 +130,11 @@ struct HelloTriangleApplication {
+@@ -106,14 +127,11 @@ struct HelloTriangleApplication {
      swap_chain_images: Vec<Arc<SwapchainImage<Window>>>,
  
      render_pass: Arc<RenderPassAbstract + Send + Sync>,
@@ -72,7 +72,7 @@
      command_buffers: Vec<Arc<AutoCommandBuffer>>,
  
      previous_frame_end: Option<Box<GpuFuture>>,
-@@ -141,6 +159,8 @@ impl HelloTriangleApplication {
+@@ -138,6 +156,8 @@ impl HelloTriangleApplication {
  
          let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
  
@@ -81,7 +81,7 @@
          let previous_frame_end = Some(Self::create_sync_objects(&device));
  
          let mut app = Self {
-@@ -164,6 +184,7 @@ impl HelloTriangleApplication {
+@@ -161,6 +181,7 @@ impl HelloTriangleApplication {
  
              swap_chain_framebuffers,
  
@@ -89,31 +89,29 @@
              command_buffers: vec![],
  
              previous_frame_end,
-@@ -370,12 +391,12 @@ impl HelloTriangleApplication {
+@@ -367,18 +388,18 @@ impl HelloTriangleApplication {
          device: &Arc<Device>,
          swap_chain_extent: [u32; 2],
          render_pass: &Arc<RenderPassAbstract + Send + Sync>,
 -    ) -> Arc<ConcreteGraphicsPipeline> {
 +    ) -> Arc<GraphicsPipelineAbstract + Send + Sync> {
-         #[allow(unused)]
          mod vertex_shader {
-             #[derive(VulkanoShader)]
-             #[ty = "vertex"]
--            #[path = "src/bin/09_shader_base.vert"]
-+            #[path = "src/bin/17_shader_vertexbuffer.vert"]
-             struct Dummy;
+             vulkano_shaders::shader! {
+                ty: "vertex",
+-               path: "src/bin/09_shader_base.vert"
++               path: "src/bin/17_shader_vertexbuffer.vert"
+             }
          }
  
-@@ -383,7 +404,7 @@ impl HelloTriangleApplication {
          mod fragment_shader {
-             #[derive(VulkanoShader)]
-             #[ty = "fragment"]
--            #[path = "src/bin/09_shader_base.frag"]
-+            #[path = "src/bin/17_shader_vertexbuffer.frag"]
-             struct Dummy;
+             vulkano_shaders::shader! {
+                 ty: "fragment",
+-                path: "src/bin/09_shader_base.frag"
++                path: "src/bin/17_shader_vertexbuffer.frag"
+             }
          }
  
-@@ -400,7 +421,7 @@ impl HelloTriangleApplication {
+@@ -395,7 +416,7 @@ impl HelloTriangleApplication {
          };
  
          Arc::new(GraphicsPipeline::start()
@@ -122,7 +120,7 @@
              .vertex_shader(vert_shader_module.main_entry_point(), ())
              .triangle_list()
              .primitive_restart(false)
-@@ -434,17 +455,21 @@ impl HelloTriangleApplication {
+@@ -429,17 +450,21 @@ impl HelloTriangleApplication {
          ).collect::<Vec<_>>()
      }
  

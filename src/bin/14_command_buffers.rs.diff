@@ -1,6 +1,6 @@
 --- a/13_framebuffers.rs
 +++ b/14_command_buffers.rs
-@@ -37,6 +37,7 @@ use vulkano::sync::SharingMode;
+@@ -34,6 +34,7 @@ use vulkano::sync::SharingMode;
  use vulkano::pipeline::{
      GraphicsPipeline,
      vertex::BufferlessDefinition,
@@ -8,7 +8,7 @@
      viewport::Viewport,
  };
  use vulkano::framebuffer::{
-@@ -46,6 +47,11 @@ use vulkano::framebuffer::{
+@@ -43,6 +44,11 @@ use vulkano::framebuffer::{
      Framebuffer,
  };
  use vulkano::descriptor::PipelineLayoutAbstract;
@@ -20,7 +20,7 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -108,6 +114,8 @@ struct HelloTriangleApplication {
+@@ -105,6 +111,8 @@ struct HelloTriangleApplication {
      graphics_pipeline: Arc<ConcreteGraphicsPipeline>,
  
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
@@ -29,7 +29,7 @@
  }
  
  impl HelloTriangleApplication {
-@@ -128,7 +136,7 @@ impl HelloTriangleApplication {
+@@ -125,7 +133,7 @@ impl HelloTriangleApplication {
  
          let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass);
  
@@ -38,7 +38,7 @@
              instance,
              debug_callback,
  
-@@ -148,7 +156,12 @@ impl HelloTriangleApplication {
+@@ -145,7 +153,12 @@ impl HelloTriangleApplication {
              graphics_pipeline,
  
              swap_chain_framebuffers,
@@ -52,7 +52,7 @@
      }
  
      fn create_instance() -> Arc<Instance> {
-@@ -410,6 +423,26 @@ impl HelloTriangleApplication {
+@@ -405,6 +418,26 @@ impl HelloTriangleApplication {
          ).collect::<Vec<_>>()
      }
  

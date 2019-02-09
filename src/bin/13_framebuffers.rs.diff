@@ -1,6 +1,6 @@
 --- a/12_graphics_pipeline_complete.rs
 +++ b/13_framebuffers.rs
-@@ -42,6 +42,8 @@ use vulkano::pipeline::{
+@@ -39,6 +39,8 @@ use vulkano::pipeline::{
  use vulkano::framebuffer::{
      RenderPassAbstract,
      Subpass,
@@ -9,7 +9,7 @@
  };
  use vulkano::descriptor::PipelineLayoutAbstract;
  
-@@ -104,6 +106,8 @@ struct HelloTriangleApplication {
+@@ -101,6 +103,8 @@ struct HelloTriangleApplication {
      // works when the concrete type of the graphics pipeline is visible
      // to the command buffer.
      graphics_pipeline: Arc<ConcreteGraphicsPipeline>,
@@ -18,7 +18,7 @@
  }
  
  impl HelloTriangleApplication {
-@@ -122,6 +126,8 @@ impl HelloTriangleApplication {
+@@ -119,6 +123,8 @@ impl HelloTriangleApplication {
          let render_pass = Self::create_render_pass(&device, swap_chain.format());
          let graphics_pipeline = Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
  
@@ -27,7 +27,7 @@
          Self {
              instance,
              debug_callback,
-@@ -140,6 +146,8 @@ impl HelloTriangleApplication {
+@@ -137,6 +143,8 @@ impl HelloTriangleApplication {
  
              render_pass,
              graphics_pipeline,
@@ -36,7 +36,7 @@
          }
      }
  
-@@ -388,6 +396,20 @@ impl HelloTriangleApplication {
+@@ -383,6 +391,20 @@ impl HelloTriangleApplication {
          )
      }
  
