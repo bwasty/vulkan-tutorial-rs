@@ -39,7 +39,7 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
     * [Vertex buffer creation](#vertex-buffer-creation)
     * [Staging buffer](#staging-buffer)
     * [Index buffer](#index-buffer)
-* [Uniform buffers (<em>TODO</em>)](#uniform-buffers-todo)
+* [Uniform buffers](#uniform-buffers)
 * [Texture mapping (<em>TODO</em>)](#texture-mapping-todo)
 * [Depth buffering (<em>TODO</em>)](#depth-buffering-todo)
 * [Loading models (<em>TODO</em>)](#loading-models-todo)
@@ -332,8 +332,60 @@ https://vulkan-tutorial.com/Vertex_buffers/Index_buffer
 
 [Diff](src/bin/20_index_buffer.rs.diff) / [Complete code](src/bin/20_index_buffer.rs)
 
-## Uniform buffers (*TODO*)
-## Texture mapping (*TODO*)
+## Uniform buffers
+### Uniform Buffer Object
+https://vulkan-tutorial.com/Uniform_buffers
+
+In this section we change the vertex shader to take a uniform buffer object consisting of a model, view, and projection matrix.
+The shader now outputs the final position as the result of multiplying these three matrices with the original vertex position.
+
+We add a new type of buffer, the CpuAccessibleBuffer, which allows us to update its contents without needing to rebuild
+the entire buffer. In order to actually be able to write to this buffer we need to specify its usage as a uniform buffer and
+also the destination of a memory transfer.
+
+Note that unlike the original tutorial we did **not** need to create any layout binding. This is handled internally by vulkano when creating
+a descriptor set, as we'll see in the next section.
+
+At this point our program will compile and run but immediately panic because we specify a binding in our shader but do not
+include a matching descriptor set. 
+
+[Vertex Shader Diff](src/bin/21_shader_uniformbuffer.vert.diff) / [Vertex Shader](src/bin/21_shader_uniformbuffer.vert)
+
+[Diff](src/bin/21_descriptor_layout_and_buffer.rs.diff) / [Complete code](src/bin/21_descriptor_layout_and_buffer.rs)
+
+### Descriptor Pool and Sets
+https://vulkan-tutorial.com/Uniform_buffers/Descriptor_pool_and_sets
+
+In this section we introduce a new resource, Descriptor Sets, which allow us to specify what buffer resources to transfer to the GPU.
+In the last section we made a change to our vertex shader to expect a buffer in binding 0 and descriptor sets allow us to specify
+the actual memory that will occupy that binding.
+
+For each uniform buffer we created in the last section, we create a descriptor set with the buffer bound to it, giving us the same
+number of descriptor sets as swap chain images. At the beginning of each frame we now recreate the command buffer, which 
+includes a new command to copy our updated UniformBufferObject into the respective uniform buffer before the render pass.
+
+Note that due to the flipping of the Y axis in the projection matrix, we now need to tell vulkan to draw the vertices in
+the opposite direction.
+
+[Diff](src/bin/22_descriptor_pools_and_sets.rs.diff) / [Complete code](src/bin/22_descriptor_pools_and_sets.rs)
+## Texture mapping
+### Images
+https://vulkan-tutorial.com/Texture_mapping/Images
+
+This section is much simpler than the C++ counterpart due to the image library we use and Vulkano's internal 
+representation of images. The image library handles converting the image to a buffer in the right format, and then all we
+need to do is pass this buffer into the appropriate constructor.
+
+[Diff](src/bin/23_images.rs.diff) / [Complete code](src/bin/23_images.rs)
+
+### Image sampler
+https://vulkan-tutorial.com/Texture_mapping/Image_view_and_sampler
+
+This section is incredibly simple. The image we created in the last section includes the functionality of an image view 
+and Vulkano includes a function to create a simple linear sampler.
+
+[Diff](src/bin/24_image_sampler.rs.diff) / [Complete code](src/bin/24_image_sampler.rs)
+
 ## Depth buffering (*TODO*)
 ## Loading models (*TODO*)
 ## Generating Mipmaps (*TODO*)
