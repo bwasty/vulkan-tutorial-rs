@@ -41,7 +41,7 @@
      }
  
 +    fn create_framebuffers(
-+        swap_chain_images: &Vec<Arc<SwapchainImage<Window>>>,
++        swap_chain_images: &[Arc<SwapchainImage<Window>>],
 +        render_pass: &Arc<RenderPassAbstract + Send + Sync>
 +    ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
 +        swap_chain_images.iter()

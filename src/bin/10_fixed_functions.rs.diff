@@ -1,4 +1,4 @@
---- a/./09_shader_modules.rs
+--- a/08_graphics_pipeline.rs
 +++ b/10_fixed_functions.rs
 @@ -30,6 +30,11 @@ use vulkano::swapchain::{
  use vulkano::format::Format;
@@ -21,24 +21,33 @@
  
          Self {
              instance,
-@@ -292,6 +297,7 @@ impl HelloTriangleApplication {
+@@ -290,8 +295,52 @@ impl HelloTriangleApplication {
+         (swap_chain, images)
+     }
  
-     fn create_graphics_pipeline(
-         device: &Arc<Device>,
+-    fn create_graphics_pipeline(_device: &Arc<Device>) {
++    fn create_graphics_pipeline(
++        device: &Arc<Device>,
 +        swap_chain_extent: [u32; 2],
-     ) {
-         mod vertex_shader {
-             vulkano_shaders::shader! {
-@@ -307,10 +313,34 @@ impl HelloTriangleApplication {
-             }
-         }
- 
--        let _vert_shader_module = vertex_shader::Shader::load(device.clone())
++    ) {
++        mod vertex_shader {
++            vulkano_shaders::shader! {
++               ty: "vertex",
++               path: "src/bin/09_shader_base.vert"
++            }
++        }
++
++        mod fragment_shader {
++            vulkano_shaders::shader! {
++                ty: "fragment",
++                path: "src/bin/09_shader_base.frag"
++            }
++        }
++
 +        let vert_shader_module = vertex_shader::Shader::load(device.clone())
-             .expect("failed to create vertex shader module!");
--        let _frag_shader_module = fragment_shader::Shader::load(device.clone())
++            .expect("failed to create vertex shader module!");
 +        let frag_shader_module = fragment_shader::Shader::load(device.clone())
-             .expect("failed to create fragment shader module!");
++            .expect("failed to create fragment shader module!");
 +
 +        let dimensions = [swap_chain_extent[0] as f32, swap_chain_extent[1] as f32];
 +        let viewport = Viewport {
@@ -46,7 +55,7 @@
 +            dimensions,
 +            depth_range: 0.0 .. 1.0,
 +        };
-+
+ 
 +        let _pipeline_builder = Arc::new(GraphicsPipeline::start()
 +            .vertex_input(BufferlessDefinition {})
 +            .vertex_shader(vert_shader_module.main_entry_point(), ())
