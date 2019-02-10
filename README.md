@@ -148,9 +148,8 @@ struct HelloTriangleApplication {
         loop {
             let mut done = false;
             self.events_loop.poll_events(|ev| {
-                match ev {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                    _ => ()
+                if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = ev {
+                    done = true
                 }
             });
             if done {
