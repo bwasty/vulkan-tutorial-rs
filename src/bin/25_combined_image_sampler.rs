@@ -81,7 +81,7 @@ const VALIDATION_LAYERS: &[&str] =  &[
     "VK_LAYER_LUNARG_standard_validation"
 ];
 
-const TEXTURE_PATH: &'static str = "src/bin/23_statue.jpg";
+const TEXTURE_PATH: &str = "src/bin/23_statue.jpg";
 
 /// Required device extensions
 fn device_extensions() -> DeviceExtensions {
@@ -123,6 +123,7 @@ impl Vertex {
 }
 impl_vertex!(Vertex, pos, color, tex);
 
+#[allow(dead_code)]
 #[derive(Copy, Clone)]
 struct UniformBufferObject {
     model: glm::Mat4,
@@ -142,6 +143,10 @@ fn vertices() -> [Vertex; 4] {
 fn indices() -> [u16; 6] {
     [0, 1, 2, 2, 3, 0]
 }
+
+type DescriptorSetUBO = PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>;
+type DescriptorSetImage = PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>;
+type DescriptorSetResources = ((((), DescriptorSetUBO), DescriptorSetImage), PersistentDescriptorSetSampler);
 
 struct HelloTriangleApplication {
     instance: Arc<Instance>,
@@ -169,7 +174,7 @@ struct HelloTriangleApplication {
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
 
-    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>), PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>), PersistentDescriptorSetSampler)>>>,
+    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>,
 
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
@@ -270,7 +275,7 @@ impl HelloTriangleApplication {
         let required_extensions = Self::get_required_extensions();
 
         if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().cloned())
                 .expect("failed to create Vulkan instance")
         } else {
             Instance::new(Some(&app_info), &required_extensions, None)
@@ -496,7 +501,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_framebuffers(
-        swap_chain_images: &Vec<Arc<SwapchainImage<Window>>>,
+        swap_chain_images: &[Arc<SwapchainImage<Window>>],
         render_pass: &Arc<RenderPassAbstract + Send + Sync>
     ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
         swap_chain_images.iter()
@@ -526,7 +531,7 @@ impl HelloTriangleApplication {
 
         future.flush().unwrap();
 
-        return image_view;
+        image_view
     }
 
     fn create_image_sampler(device: &Arc<Device>) -> Arc<Sampler> {
@@ -588,10 +593,10 @@ impl HelloTriangleApplication {
 
     fn create_descriptor_sets(
         pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
-        uniform_buffers: &Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
+        uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
         texture_image: &Arc<ImmutableImage<Format>>,
         image_sampler: &Arc<Sampler>,
-    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>), PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>), PersistentDescriptorSetSampler)>>> {
+    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>> {
         uniform_buffers
             .iter()
             .map(|uniform_buffer|
@@ -714,9 +719,8 @@ impl HelloTriangleApplication {
 
             let mut done = false;
             self.events_loop.poll_events(|ev| {
-                match ev {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                    _ => ()
+                if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = ev {
+                    done = true
                 }
             });
             if done {
@@ -770,7 +774,7 @@ impl HelloTriangleApplication {
 
     fn update_uniform_buffer(start_time: Instant, dimensions: [f32; 2]) -> UniformBufferObject {
         let duration = Instant::now().duration_since(start_time);
-        let elapsed = (duration.as_secs() * 1000) + duration.subsec_millis() as u64;
+        let elapsed = (duration.as_secs() * 1000) + u64::from(duration.subsec_millis());
 
         let identity_matrix = glm::mat4(
             1.0, 0.0, 0.0, 0.0,
