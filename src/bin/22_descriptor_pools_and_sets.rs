@@ -60,7 +60,8 @@ use vulkano::buffer::{
 };
 use vulkano::descriptor::descriptor_set::{
     FixedSizeDescriptorSetsPool,
-    FixedSizeDescriptorSet
+    FixedSizeDescriptorSet,
+    PersistentDescriptorSetBuf
 };
 use cgmath::{
     Rad,
@@ -137,6 +138,8 @@ fn indices() -> [u16; 6] {
     [0, 1, 2, 2, 3, 0]
 }
 
+type DescriptorSetResources = ((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>);
+
 struct HelloTriangleApplication {
     instance: Arc<Instance>,
     #[allow(unused)]
@@ -163,7 +166,7 @@ struct HelloTriangleApplication {
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
 
-    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>,
+    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>,
 
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
@@ -556,7 +559,7 @@ impl HelloTriangleApplication {
     fn create_descriptor_sets(
         pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
         uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
-    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>
+    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>
     {
         uniform_buffers
             .iter()
