@@ -3,6 +3,7 @@ extern crate vulkano;
 extern crate vulkano_win;
 extern crate winit;
 extern crate image;
+extern crate cgmath;
 
 use std::sync::{Arc, Mutex};
 use std::collections::HashSet;
@@ -65,7 +66,15 @@ use vulkano::buffer::{
 };
 use vulkano::descriptor::descriptor_set::{
     FixedSizeDescriptorSetsPool,
-    FixedSizeDescriptorSet
+    FixedSizeDescriptorSet,
+    PersistentDescriptorSetBuf
+};
+use cgmath::{
+    Rad,
+    Deg,
+    Matrix4,
+    Vector3,
+    Point3
 };
 
 use image::GenericImageView;
@@ -77,7 +86,7 @@ const VALIDATION_LAYERS: &[&str] =  &[
     "VK_LAYER_LUNARG_standard_validation"
 ];
 
-const TEXTURE_PATH: &'static str = "src/bin/23_statue.jpg";
+const TEXTURE_PATH: &str = "src/bin/23_statue.jpg";
 
 /// Required device extensions
 fn device_extensions() -> DeviceExtensions {
@@ -118,11 +127,12 @@ impl Vertex {
 }
 impl_vertex!(Vertex, pos, color);
 
+#[allow(dead_code)]
 #[derive(Copy, Clone)]
 struct UniformBufferObject {
-    model: glm::Mat4,
-    view: glm::Mat4,
-    proj: glm::Mat4,
+    model: Matrix4<f32>,
+    view: Matrix4<f32>,
+    proj: Matrix4<f32>,
 }
 
 fn vertices() -> [Vertex; 4] {
@@ -137,6 +147,8 @@ fn vertices() -> [Vertex; 4] {
 fn indices() -> [u16; 6] {
     [0, 1, 2, 2, 3, 0]
 }
+
+type DescriptorSetResources = ((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>);
 
 struct HelloTriangleApplication {
     instance: Arc<Instance>,
@@ -160,13 +172,14 @@ struct HelloTriangleApplication {
 
     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 
+    #[allow(dead_code)]
     texture_image: Arc<ImmutableImage<Format>>,
 
     vertex_buffer: Arc<BufferAccess + Send + Sync>,
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
 
-    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>,
+    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>,
 
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
 
@@ -268,7 +281,7 @@ impl HelloTriangleApplication {
         let required_extensions = Self::get_required_extensions();
 
         if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().cloned())
                 .expect("failed to create Vulkan instance")
         } else {
             Instance::new(Some(&app_info), &required_extensions, None)
@@ -494,7 +507,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_framebuffers(
-        swap_chain_images: &Vec<Arc<SwapchainImage<Window>>>,
+        swap_chain_images: &[Arc<SwapchainImage<Window>>],
         render_pass: &Arc<RenderPassAbstract + Send + Sync>
     ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
         swap_chain_images.iter()
@@ -524,7 +537,7 @@ impl HelloTriangleApplication {
 
         future.flush().unwrap();
 
-        return image_view;
+        image_view
     }
 
     fn create_vertex_buffer(graphics_queue: &Arc<Queue>) -> Arc<BufferAccess + Send + Sync> {
@@ -580,10 +593,11 @@ impl HelloTriangleApplication {
         )
     }
 
+
     fn create_descriptor_sets(
         pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
-        uniform_buffers: &Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
-    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>
+        uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
+    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>
     {
         uniform_buffers
             .iter()
@@ -705,9 +719,8 @@ impl HelloTriangleApplication {
 
             let mut done = false;
             self.events_loop.poll_events(|ev| {
-                match ev {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                    _ => ()
+                if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = ev {
+                    done = true
                 }
             });
             if done {
@@ -761,30 +774,24 @@ impl HelloTriangleApplication {
 
     fn update_uniform_buffer(start_time: Instant, dimensions: [f32; 2]) -> UniformBufferObject {
         let duration = Instant::now().duration_since(start_time);
-        let elapsed = (duration.as_secs() * 1000) + duration.subsec_millis() as u64;
+        let elapsed = (duration.as_secs() * 1000) + u64::from(duration.subsec_millis());
 
-        let identity_matrix = glm::mat4(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+        let model = Matrix4::from_angle_z(Rad::from(Deg(elapsed as f32 * 0.180)));
+
+        let view = Matrix4::look_at(
+            Point3::new(2.0, 2.0, 2.0),
+            Point3::new(0.0, 0.0, 0.0),
+            Vector3::new(0.0, 0.0, 1.0)
         );
 
-        let model = glm::ext::rotate(&identity_matrix, (elapsed as f32) * glm::radians(0.180), glm::vec3(0.0, 0.0, 1.00));
-
-        let view = glm::ext::look_at(
-            glm::vec3(2.0, 2.0, 2.0),
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(0.0, 0.0, 1.0)
-        );
-        let mut proj = glm::ext::perspective(
-            glm::radians(45.0,),
+        let mut proj = cgmath::perspective(
+            Rad::from(Deg(45.0)),
             dimensions[0] as f32 / dimensions[1] as f32,
             0.1,
             10.0
         );
 
-        proj.c1.y *= -1.0;
+        proj.y.y *= -1.0;
 
         UniformBufferObject { model, view, proj }
     }
