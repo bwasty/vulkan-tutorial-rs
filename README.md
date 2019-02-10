@@ -40,9 +40,9 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
     * [Staging buffer](#staging-buffer)
     * [Index buffer](#index-buffer)
 * [Uniform buffers](#uniform-buffers)
-* [Texture mapping (<em>TODO</em>)](#texture-mapping-todo)
-* [Depth buffering (<em>TODO</em>)](#depth-buffering-todo)
-* [Loading models (<em>TODO</em>)](#loading-models-todo)
+* [Texture mapping (<em>TODO</em>)](#texture-mapping)
+* [Depth buffering (<em>TODO</em>)](#depth-buffering)
+* [Loading models (<em>TODO</em>)](#loading-models)
 * [Generating Mipmaps (<em>TODO</em>)](#generating-mipmaps-todo)
 * [Multisampling (<em>TODO</em>)](#multisampling-todo)
 
@@ -412,6 +412,17 @@ If I'm missing something, feel free to let me know. The depth format we use is g
 
 [Diff](src/bin/26_depth_buffering.rs.diff) / [Complete code](src/bin/26_depth_buffering.rs)
 
-## Loading models (*TODO*)
+## Loading models
+In this section we add a new dependency for loading obj files, [tobj](http://www.willusher.io/tobj/tobj/index.html),
+and remove our top level functions for vertices and indices. Loading the model is fairly straight forward -- we iterate through
+each of the models in the file and for each of the indices of that model, we get its relevant position and texture coordinate details.
+
+Unlike the C++ tutorial, vertex deduplication is not necessary as it is handled by tobj as stated in the docs:
+```
+Indices are also loaded and may re-use vertices already existing in the mesh.
+```
+
+[Diff](src/bin/27_model_loading.rs.diff) / [Complete Code](src/bin/27_model_loading.rs)
+ 
 ## Generating Mipmaps (*TODO*)
 ## Multisampling (*TODO*)
