@@ -22,8 +22,21 @@
  };
  
  const WIDTH: u32 = 800;
-@@ -150,6 +154,8 @@ struct HelloTriangleApplication {
+@@ -102,8 +106,6 @@ impl Vertex {
+         Self { pos, color }
+     }
+ }
+-
+-#[allow(clippy:ref_in_deref)]
+ impl_vertex!(Vertex, pos, color);
+ 
+ #[allow(dead_code)]
+@@ -151,16 +153,15 @@ struct HelloTriangleApplication {
+ 
+     vertex_buffer: Arc<BufferAccess + Send + Sync>,
      index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
+-
+-    #[allow(dead_code)]
      uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
  
 +    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>,
@@ -31,7 +44,13 @@
      command_buffers: Vec<Arc<AutoCommandBuffer>>,
  
      previous_frame_end: Option<Box<GpuFuture>>,
-@@ -183,6 +189,9 @@ impl HelloTriangleApplication {
+     recreate_swap_chain: bool,
+ 
+-    #[allow(dead_code)]
+     start_time: Instant,
+ }
+ 
+@@ -189,6 +190,9 @@ impl HelloTriangleApplication {
          let index_buffer = Self::create_index_buffer(&graphics_queue);
          let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
  
@@ -41,7 +60,7 @@
          let previous_frame_end = Some(Self::create_sync_objects(&device));
  
          let mut app = Self {
-@@ -210,6 +219,8 @@ impl HelloTriangleApplication {
+@@ -216,6 +220,8 @@ impl HelloTriangleApplication {
              index_buffer,
              uniform_buffers,
  
@@ -50,7 +69,7 @@
              command_buffers: vec![],
  
              previous_frame_end,
-@@ -457,7 +468,7 @@ impl HelloTriangleApplication {
+@@ -463,7 +469,7 @@ impl HelloTriangleApplication {
              .polygon_mode_fill() // = default
              .line_width(1.0) // = default
              .cull_mode_back()
@@ -59,7 +78,7 @@
              // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
              .blend_pass_through() // = default
              .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-@@ -523,12 +534,50 @@ impl HelloTriangleApplication {
+@@ -529,12 +535,50 @@ impl HelloTriangleApplication {
          buffers
      }
  
@@ -75,7 +94,7 @@
 +
 +    fn create_descriptor_sets(
 +        pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
-+        uniform_buffers: &Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
++        uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
 +    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>
 +    {
 +        uniform_buffers
@@ -112,7 +131,7 @@
                      .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                      .unwrap()
                      .draw_indexed(
-@@ -536,7 +585,7 @@ impl HelloTriangleApplication {
+@@ -542,7 +586,7 @@ impl HelloTriangleApplication {
                          &DynamicState::none(),
                          vec![self.vertex_buffer.clone()],
                          self.index_buffer.clone(),
@@ -121,7 +140,7 @@
                          ())
                      .unwrap()
                      .end_render_pass()
-@@ -615,6 +664,7 @@ impl HelloTriangleApplication {
+@@ -621,6 +665,7 @@ impl HelloTriangleApplication {
      #[allow(unused)]
      fn main_loop(&mut self) {
          loop {
