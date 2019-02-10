@@ -4,6 +4,6 @@ workflow "CI" {
 }
 
 action "Build & Lint" {
-  uses = "icepuma/rust-action@master"
+  uses = "bwasty/rust-action@master"
   args = "cargo build && cargo clippy -- -Dwarnings"
 }
