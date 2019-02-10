@@ -1,6 +1,13 @@
 --- a/24_image_sampler.rs
 +++ b/25_combined_image_sampler.rs
-@@ -70,6 +70,9 @@ use vulkano::descriptor::descriptor_set::{
+@@ -65,12 +65,14 @@ use vulkano::buffer::{
+ };
+ use vulkano::descriptor::descriptor_set::{
+     FixedSizeDescriptorSetsPool,
+-    FixedSizeDescriptorSet,
+-    PersistentDescriptorSetBuf
++    FixedSizeDescriptorSet
+ };
  
  use image::GenericImageView;
  use vulkano::sampler::Sampler;
@@ -10,7 +17,7 @@
  
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -111,13 +114,14 @@ impl QueueFamilyIndices {
+@@ -112,13 +114,14 @@ impl QueueFamilyIndices {
  struct Vertex {
      pos: [f32; 2],
      color: [f32; 3],
@@ -26,9 +33,9 @@
 -impl_vertex!(Vertex, pos, color);
 +impl_vertex!(Vertex, pos, color, tex);
  
+ #[allow(dead_code)]
  #[derive(Copy, Clone)]
- struct UniformBufferObject {
-@@ -128,10 +132,10 @@ struct UniformBufferObject {
+@@ -130,10 +133,10 @@ struct UniformBufferObject {
  
  fn vertices() -> [Vertex; 4] {
      [
@@ -43,23 +50,30 @@
      ]
  }
  
-@@ -161,14 +165,11 @@ struct HelloTriangleApplication {
+@@ -141,7 +144,9 @@ fn indices() -> [u16; 6] {
+     [0, 1, 2, 2, 3, 0]
+ }
+ 
+-type DescriptorSetResources = ((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>);
++type DescriptorSetUBO = PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>;
++type DescriptorSetImage = PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>;
++type DescriptorSetResources = ((((), DescriptorSetUBO), DescriptorSetImage), PersistentDescriptorSetSampler);
+ 
+ struct HelloTriangleApplication {
+     instance: Arc<Instance>,
+@@ -165,11 +170,6 @@ struct HelloTriangleApplication {
  
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
  
+-    #[allow(dead_code)]
 -    texture_image: Arc<ImmutableImage<Format>>,
+-    #[allow(dead_code)]
 -    image_sampler: Arc<Sampler>,
 -
      vertex_buffer: Arc<BufferAccess + Send + Sync>,
      index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
      uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
- 
--    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>,
-+    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>), PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>), PersistentDescriptorSetSampler)>>>,
- 
-     command_buffers: Vec<Arc<AutoCommandBuffer>>,
- 
-@@ -207,7 +208,7 @@ impl HelloTriangleApplication {
+@@ -213,7 +213,7 @@ impl HelloTriangleApplication {
          let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
  
          let descriptor_sets_pool = Self::create_descriptor_pool(&graphics_pipeline);
@@ -68,7 +82,7 @@
  
          let previous_frame_end = Some(Self::create_sync_objects(&device));
  
-@@ -232,9 +233,6 @@ impl HelloTriangleApplication {
+@@ -238,9 +238,6 @@ impl HelloTriangleApplication {
  
              swap_chain_framebuffers,
  
@@ -78,7 +92,7 @@
              vertex_buffer,
              index_buffer,
              uniform_buffers,
-@@ -453,14 +451,14 @@ impl HelloTriangleApplication {
+@@ -459,14 +456,14 @@ impl HelloTriangleApplication {
          mod vertex_shader {
              vulkano_shaders::shader! {
                 ty: "vertex",
@@ -95,19 +109,19 @@
              }
          }
  
-@@ -591,8 +589,9 @@ impl HelloTriangleApplication {
+@@ -597,8 +594,9 @@ impl HelloTriangleApplication {
      fn create_descriptor_sets(
          pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
-         uniform_buffers: &Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
--    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>
+         uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
+-    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>
 -    {
 +        texture_image: &Arc<ImmutableImage<Format>>,
 +        image_sampler: &Arc<Sampler>,
-+    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>), PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>), PersistentDescriptorSetSampler)>>> {
++    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>> {
          uniform_buffers
              .iter()
              .map(|uniform_buffer|
-@@ -603,6 +602,8 @@ impl HelloTriangleApplication {
+@@ -609,6 +607,8 @@ impl HelloTriangleApplication {
                          .next()
                          .add_buffer(uniform_buffer.clone())
                          .unwrap()
