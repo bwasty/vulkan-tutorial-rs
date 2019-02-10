@@ -181,7 +181,7 @@ impl HelloTriangleApplication {
         let required_extensions = Self::get_required_extensions();
 
         if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().cloned())
                 .expect("failed to create Vulkan instance")
         } else {
             Instance::new(Some(&app_info), &required_extensions, None)
@@ -406,7 +406,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_framebuffers(
-        swap_chain_images: &Vec<Arc<SwapchainImage<Window>>>,
+        swap_chain_images: &[Arc<SwapchainImage<Window>>],
         render_pass: &Arc<RenderPassAbstract + Send + Sync>
     ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
         swap_chain_images.iter()
@@ -507,9 +507,8 @@ impl HelloTriangleApplication {
 
             let mut done = false;
             self.events_loop.poll_events(|ev| {
-                match ev {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                    _ => ()
+                if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = ev {
+                    done = true
                 }
             });
             if done {

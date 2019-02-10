@@ -102,8 +102,11 @@ impl Vertex {
         Self { pos, color }
     }
 }
+
+#[allow(clippy:ref_in_deref)]
 impl_vertex!(Vertex, pos, color);
 
+#[allow(dead_code)]
 #[derive(Copy, Clone)]
 struct UniformBufferObject {
     model: glm::Mat4,
@@ -148,6 +151,8 @@ struct HelloTriangleApplication {
 
     vertex_buffer: Arc<BufferAccess + Send + Sync>,
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
+
+    #[allow(dead_code)]
     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
 
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
@@ -155,6 +160,7 @@ struct HelloTriangleApplication {
     previous_frame_end: Option<Box<GpuFuture>>,
     recreate_swap_chain: bool,
 
+    #[allow(dead_code)]
     start_time: Instant,
 }
 
@@ -241,7 +247,7 @@ impl HelloTriangleApplication {
         let required_extensions = Self::get_required_extensions();
 
         if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
+            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().cloned())
                 .expect("failed to create Vulkan instance")
         } else {
             Instance::new(Some(&app_info), &required_extensions, None)
@@ -467,7 +473,7 @@ impl HelloTriangleApplication {
     }
 
     fn create_framebuffers(
-        swap_chain_images: &Vec<Arc<SwapchainImage<Window>>>,
+        swap_chain_images: &[Arc<SwapchainImage<Window>>],
         render_pass: &Arc<RenderPassAbstract + Send + Sync>
     ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
         swap_chain_images.iter()
@@ -619,9 +625,8 @@ impl HelloTriangleApplication {
 
             let mut done = false;
             self.events_loop.poll_events(|ev| {
-                match ev {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                    _ => ()
+                if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = ev {
+                    done = true
                 }
             });
             if done {
@@ -675,7 +680,7 @@ impl HelloTriangleApplication {
 
     fn update_uniform_buffer(start_time: Instant, dimensions: [f32; 2]) -> UniformBufferObject {
         let duration = Instant::now().duration_since(start_time);
-        let elapsed = (duration.as_secs() * 1000) + duration.subsec_millis() as u64;
+        let elapsed = (duration.as_secs() * 1000) + u64::from(duration.subsec_millis());
 
         let identity_matrix = glm::mat4(
             1.0, 0.0, 0.0, 0.0,
