@@ -63,7 +63,7 @@
 +        let required_extensions = Self::get_required_extensions();
 +
 +        if ENABLE_VALIDATION_LAYERS && Self::check_validation_layer_support() {
-+            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().map(|s| *s))
++            Instance::new(Some(&app_info), &required_extensions, VALIDATION_LAYERS.iter().cloned())
 +                .expect("failed to create Vulkan instance")
 +        } else {
 +            Instance::new(Some(&app_info), &required_extensions, None)

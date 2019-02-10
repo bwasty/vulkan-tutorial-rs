@@ -21,8 +21,8 @@
 +
              let mut done = false;
              self.events_loop.poll_events(|ev| {
-                 match ev {
-@@ -514,9 +517,24 @@ impl HelloTriangleApplication {
+                 if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = ev {
+@@ -513,9 +516,24 @@ impl HelloTriangleApplication {
              }
          }
      }
