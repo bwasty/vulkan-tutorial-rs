@@ -89,7 +89,7 @@
      fn find_queue_families(surface: &Arc<Surface<Window>>, device: &PhysicalDevice) -> QueueFamilyIndices {
          let mut indices = QueueFamilyIndices::new();
          // TODO: replace index with id to simplify?
-@@ -519,18 +533,59 @@ impl HelloTriangleApplication {
+@@ -518,18 +532,59 @@ impl HelloTriangleApplication {
      }
  
      fn draw_frame(&mut self) {
