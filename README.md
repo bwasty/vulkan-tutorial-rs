@@ -351,8 +351,66 @@ include a matching descriptor set.
 [Vertex Shader Diff](src/bin/21_shader_uniformbuffer.vert.diff) / [Vertex Shader](src/bin/21_shader_uniformbuffer.vert)
 
 [Diff](src/bin/21_descriptor_layout_and_buffer.rs.diff) / [Complete code](src/bin/21_descriptor_layout_and_buffer.rs)
-## Texture mapping (*TODO*)
-## Depth buffering (*TODO*)
+
+### Descriptor Pool and Sets
+https://vulkan-tutorial.com/Uniform_buffers/Descriptor_pool_and_sets
+
+In this section we introduce a new resource, Descriptor Sets, which allow us to specify what buffer resources to transfer to the GPU.
+In the last section we made a change to our vertex shader to expect a buffer in binding 0 and descriptor sets allow us to specify
+the actual memory that will occupy that binding.
+
+For each uniform buffer we created in the last section, we create a descriptor set with the buffer bound to it, giving us the same
+number of descriptor sets as swap chain images. At the beginning of each frame we now recreate the command buffer, which 
+includes a new command to copy our updated UniformBufferObject into the respective uniform buffer before the render pass.
+
+Note that due to the flipping of the Y axis in the projection matrix, we now need to tell vulkan to draw the vertices in
+the opposite direction.
+
+[Diff](src/bin/22_descriptor_pools_and_sets.rs.diff) / [Complete code](src/bin/22_descriptor_pools_and_sets.rs)
+## Texture mapping
+### Images
+https://vulkan-tutorial.com/Texture_mapping/Images
+
+This section is much simpler than the C++ counterpart due to the image library we use and Vulkano's internal 
+representation of images. The image library handles converting the image to a buffer in the right format, and then all we
+need to do is pass this buffer into the appropriate constructor.
+
+[Diff](src/bin/23_images.rs.diff) / [Complete code](src/bin/23_images.rs)
+
+### Image sampler
+https://vulkan-tutorial.com/Texture_mapping/Image_view_and_sampler
+
+This section is incredibly simple. The image we created in the last section includes the functionality of an image view 
+and Vulkano includes a function to create a simple linear sampler.
+
+[Diff](src/bin/24_image_sampler.rs.diff) / [Complete code](src/bin/24_image_sampler.rs)
+
+### Combined image sampler
+https://vulkan-tutorial.com/Texture_mapping/Combined_image_sampler
+
+In this section we update our Vertex type to include texel coordinates, update our vertex shader to expect this information,
+and update our fragment shader to receive a texture sampler to actually render our image.
+
+Since we have a new binding in our fragment shader we need to update our descriptor set to match this binding so we add a call
+to add a sampled image and pass in the texture image and image sampler we created in the previous sections.
+
+[Vertex shader diff](src/bin/25_shader_texturesampler.vert.diff) / [Vertex shader code](src/bin/25_shader_texturesampler.vert)
+
+[Fragment shader diff](src/bin/25_shader_texturesampler.frag.diff) / [Fragment shader code](src/bin/25_shader_texturesampler.frag)
+
+[Diff](src/bin/25_combined_image_sampler.rs.diff) / [Complete code](src/bin/25_combined_image_sampler.rs)
+## Depth buffering
+
+In this section we update our Vertex type to include a third input for depth, add a depth image to our render pass. 
+In the C++ tutorial there is querying to determine the proper depth format but I can't find a similar functionality in Vulkano. 
+If I'm missing something, feel free to let me know. The depth format we use is guaranteed to be supported according to Vulkano docs.
+
+[Vertex shader diff](src/bin/26_shader_depthbuffering.vert.diff) / [Vertex shader code](src/bin/26_shader_depthbuffering.vert)
+
+[Fragment shader diff](src/bin/26_shader_depthbuffering.frag.diff) / [Fragment shader code](src/bin/26_shader_depthbuffering.frag)
+
+[Diff](src/bin/26_depth_buffering.rs.diff) / [Complete code](src/bin/26_depth_buffering.rs)
+
 ## Loading models (*TODO*)
 ## Generating Mipmaps (*TODO*)
 ## Multisampling (*TODO*)
