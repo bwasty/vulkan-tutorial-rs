@@ -424,5 +424,26 @@ Indices are also loaded and may re-use vertices already existing in the mesh.
 
 [Diff](src/bin/27_model_loading.rs.diff) / [Complete Code](src/bin/27_model_loading.rs)
  
-## Generating Mipmaps (*TODO*)
+## Generating Mipmaps
+
+***Warning***: Currently this section results in Validation Layer warnings and may not behave the same on all machines.
+
+For this section, it's difficult to reproduce the original behavior of the c++ Vulkan tutorial while still idiomatically using Vulkano.
+At the moment Vulkano does not have a great way of handling layouts transitions while blitting when the source and destination
+are the same buffer. Writing the same behavior with memory barriers would involve diving into using Vulkano's internal `sys`
+types and would essentially be bypassing the higher level abstractions and conveniences that make this library stand out from
+projects that provide near one-to-one bindings like [Ash](https://github.com/MaikKlein/ash). Given this is a tutorial on Vulkano,
+it did not seem like a good idea to introduce unsafe code that was less idiomatic. As mentioned above, if you want to see a
+more direct Rust translation of this section closer to the Vulkan C API, have a look at the Ash equivalent of this tutorial 
+[vulkan-tutorial-rust](https://github.com/Usami-Renko/vulkan-tutorial-rust).
+
+Given Vulkano is under active development and not stable, we will update this if correct, idiomatic ways of handling this
+type of blitting are added to Vulkano.
+
+Also to note and is mentioned on the original tutorial, most of the time mipmaps are generated at the time of texture
+creation rather than during application for performance reasons. This section is done for completeness and to show how image
+blitting and manipulation is done in Vulkan.
+
+[Diff](src/bin/28_generating_mipmaps.rs.diff) / [Complete Code](src/bin/28_generating_mipmaps.rs)
+ 
 ## Multisampling (*TODO*)
