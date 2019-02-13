@@ -1,0 +1,54 @@
+--- a/23_images.rs
++++ b/24_image_sampler.rs
+@@ -70,6 +70,7 @@ use vulkano::descriptor::descriptor_set::{
+ };
+ 
+ use image::GenericImageView;
++use vulkano::sampler::Sampler;
+ 
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+@@ -166,6 +167,8 @@ struct HelloTriangleApplication {
+ 
+     #[allow(dead_code)]
+     texture_image: Arc<ImmutableImage<Format>>,
++    #[allow(dead_code)]
++    image_sampler: Arc<Sampler>,
+ 
+     vertex_buffer: Arc<BufferAccess + Send + Sync>,
+     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
+@@ -203,6 +206,7 @@ impl HelloTriangleApplication {
+         let start_time = Instant::now();
+ 
+         let texture_image = Self::create_texture_image(&graphics_queue);
++        let image_sampler = Self::create_image_sampler(&device);
+ 
+         let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
+         let index_buffer = Self::create_index_buffer(&graphics_queue);
+@@ -235,6 +239,7 @@ impl HelloTriangleApplication {
+             swap_chain_framebuffers,
+ 
+             texture_image,
++            image_sampler,
+ 
+             vertex_buffer,
+             index_buffer,
+@@ -532,6 +537,10 @@ impl HelloTriangleApplication {
+         image_view
+     }
+ 
++    fn create_image_sampler(device: &Arc<Device>) -> Arc<Sampler> {
++        Sampler::simple_repeat_linear(device.clone())
++    }
++
+     fn create_vertex_buffer(graphics_queue: &Arc<Queue>) -> Arc<BufferAccess + Send + Sync> {
+         let (buffer, future) = ImmutableBuffer::from_iter(
+             vertices().iter().cloned(), BufferUsage::vertex_buffer(),
+@@ -585,7 +594,6 @@ impl HelloTriangleApplication {
+         )
+     }
+ 
+-
+     fn create_descriptor_sets(
+         pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
+         uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
