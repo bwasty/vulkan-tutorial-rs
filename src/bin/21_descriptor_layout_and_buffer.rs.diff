@@ -1,6 +1,10 @@
 --- a/20_index_buffer.rs
 +++ b/21_descriptor_layout_and_buffer.rs
-@@ -5,6 +5,7 @@ extern crate winit;
+@@ -2,9 +2,11 @@
+ extern crate vulkano;
+ extern crate vulkano_win;
+ extern crate winit;
++extern crate cgmath;
  
  use std::sync::Arc;
  use std::collections::HashSet;
@@ -8,15 +12,22 @@
  
  use winit::{EventsLoop, WindowBuilder, Window, dpi::LogicalSize, Event, WindowEvent};
  use vulkano_win::VkSurfaceBuild;
-@@ -54,6 +55,7 @@ use vulkano::buffer::{
+@@ -54,6 +56,14 @@ use vulkano::buffer::{
      BufferUsage,
      BufferAccess,
      TypedBufferAccess,
 +    CpuAccessibleBuffer,
++};
++use cgmath::{
++    Rad,
++    Deg,
++    Matrix4,
++    Vector3,
++    Point3
  };
  
  const WIDTH: u32 = 800;
-@@ -100,8 +102,18 @@ impl Vertex {
+@@ -100,8 +110,18 @@ impl Vertex {
          Self { pos, color }
      }
  }
@@ -27,15 +38,15 @@
 +#[allow(dead_code)]
 +#[derive(Copy, Clone)]
 +struct UniformBufferObject {
-+    model: glm::Mat4,
-+    view: glm::Mat4,
-+    proj: glm::Mat4,
++    model: Matrix4<f32>,
++    view: Matrix4<f32>,
++    proj: Matrix4<f32>,
 +}
 +
  fn vertices() -> [Vertex; 4] {
      [
          Vertex::new([-0.5, -0.5], [1.0, 0.0, 0.0]),
-@@ -139,10 +151,17 @@ struct HelloTriangleApplication {
+@@ -139,10 +159,17 @@ struct HelloTriangleApplication {
  
      vertex_buffer: Arc<BufferAccess + Send + Sync>,
      index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
@@ -53,7 +64,7 @@
  }
  
  impl HelloTriangleApplication {
-@@ -159,12 +178,16 @@ impl HelloTriangleApplication {
+@@ -159,12 +186,16 @@ impl HelloTriangleApplication {
              &device, &graphics_queue, &present_queue, None);
  
          let render_pass = Self::create_render_pass(&device, swap_chain.format());
@@ -70,7 +81,7 @@
  
          let previous_frame_end = Some(Self::create_sync_objects(&device));
  
-@@ -191,10 +214,14 @@ impl HelloTriangleApplication {
+@@ -191,10 +222,14 @@ impl HelloTriangleApplication {
  
              vertex_buffer,
              index_buffer,
@@ -85,7 +96,7 @@
          };
  
          app.create_command_buffers();
-@@ -401,14 +428,14 @@ impl HelloTriangleApplication {
+@@ -401,14 +436,14 @@ impl HelloTriangleApplication {
          mod vertex_shader {
              vulkano_shaders::shader! {
                 ty: "vertex",
@@ -102,7 +113,7 @@
              }
          }
  
-@@ -477,6 +504,31 @@ impl HelloTriangleApplication {
+@@ -477,6 +512,31 @@ impl HelloTriangleApplication {
          buffer
      }
  
@@ -134,7 +145,7 @@
      fn create_command_buffers(&mut self) {
          let queue_family = self.graphics_queue.family();
          self.command_buffers = self.swap_chain_framebuffers.iter()
-@@ -485,9 +537,13 @@ impl HelloTriangleApplication {
+@@ -485,9 +545,13 @@ impl HelloTriangleApplication {
                      .unwrap()
                      .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                      .unwrap()
@@ -150,7 +161,7 @@
                      .unwrap()
                      .end_render_pass()
                      .unwrap()
-@@ -622,6 +678,36 @@ impl HelloTriangleApplication {
+@@ -622,6 +686,30 @@ impl HelloTriangleApplication {
          }
      }
  
@@ -158,28 +169,22 @@
 +        let duration = Instant::now().duration_since(start_time);
 +        let elapsed = (duration.as_secs() * 1000) + u64::from(duration.subsec_millis());
 +
-+        let identity_matrix = glm::mat4(
-+            1.0, 0.0, 0.0, 0.0,
-+            0.0, 1.0, 0.0, 0.0,
-+            0.0, 0.0, 1.0, 0.0,
-+            0.0, 0.0, 0.0, 1.0,
++        let model = Matrix4::from_angle_z(Rad::from(Deg(elapsed as f32 * 0.180)));
++
++        let view = Matrix4::look_at(
++            Point3::new(2.0, 2.0, 2.0),
++            Point3::new(0.0, 0.0, 0.0),
++            Vector3::new(0.0, 0.0, 1.0)
 +        );
 +
-+        let model = glm::ext::rotate(&identity_matrix, (elapsed as f32) * glm::radians(0.180), glm::vec3(0.0, 0.0, 1.00));
-+
-+        let view = glm::ext::look_at(
-+            glm::vec3(2.0, 2.0, 2.0),
-+            glm::vec3(0.0, 0.0, 0.0),
-+            glm::vec3(0.0, 0.0, 1.0)
-+        );
-+        let mut proj = glm::ext::perspective(
-+            glm::radians(45.0,),
++        let mut proj = cgmath::perspective(
++            Rad::from(Deg(45.0)),
 +            dimensions[0] as f32 / dimensions[1] as f32,
 +            0.1,
 +            10.0
 +        );
 +
-+        proj.c1.y *= -1.0;
++        proj.y.y *= -1.0;
 +
 +        UniformBufferObject { model, view, proj }
 +    }
@@ -187,7 +192,7 @@
      fn recreate_swap_chain(&mut self) {
          let (swap_chain, images) = Self::create_swap_chain(&self.instance, &self.surface, self.physical_device_index,
              &self.device, &self.graphics_queue, &self.present_queue, Some(self.swap_chain.clone()));
-@@ -639,4 +725,4 @@ impl HelloTriangleApplication {
+@@ -639,4 +727,4 @@ impl HelloTriangleApplication {
  fn main() {
      let mut app = HelloTriangleApplication::initialize();
      app.main_loop();
