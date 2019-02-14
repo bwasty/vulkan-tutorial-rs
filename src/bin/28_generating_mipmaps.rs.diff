@@ -1,6 +1,6 @@
 --- a/27_model_loading.rs
 +++ b/28_generating_mipmaps.rs
-@@ -36,12 +36,20 @@ use vulkano::swapchain::{
+@@ -37,12 +37,20 @@ use vulkano::swapchain::{
  use vulkano::format::{Format, ClearValue};
  use vulkano::image::{
      ImageUsage,
@@ -24,7 +24,7 @@
  use vulkano::pipeline::{
      GraphicsPipeline,
      GraphicsPipelineAbstract,
-@@ -58,6 +66,7 @@ use vulkano::command_buffer::{
+@@ -59,6 +67,7 @@ use vulkano::command_buffer::{
      AutoCommandBuffer,
      AutoCommandBufferBuilder,
      DynamicState,
@@ -32,21 +32,23 @@
  };
  use vulkano::buffer::{
      immutable::ImmutableBuffer,
-@@ -73,7 +82,12 @@ use vulkano::descriptor::descriptor_set::{
+@@ -74,9 +83,14 @@ use vulkano::descriptor::descriptor_set::{
      PersistentDescriptorSetImg,
      PersistentDescriptorSetSampler,
  };
--use vulkano::sampler::Sampler;
 +use vulkano::sampler::{
 +    Sampler,
 +    Filter,
 +    MipmapMode,
 +    SamplerAddressMode,
 +};
- use image::GenericImageView;
  
- const WIDTH: u32 = 800;
-@@ -539,28 +553,108 @@ impl HelloTriangleApplication {
+ use image::GenericImageView;
+-use vulkano::sampler::Sampler;
+ 
+ use cgmath::{
+     Rad,
+@@ -549,28 +563,114 @@ impl HelloTriangleApplication {
          ).collect::<Vec<_>>()
      }
  
@@ -149,19 +151,25 @@
  
      fn create_image_sampler(device: &Arc<Device>) -> Arc<Sampler> {
 -        Sampler::simple_repeat_linear(device.clone())
++        // This is the standard sampler but for this section we are using a custom sampler to show the work we have done
 +        // Sampler::simple_repeat_linear(device.clone())
-+        Sampler::new(device.clone(),
-+                     Filter::Linear,
-+                     Filter::Linear,
-+                     MipmapMode::Linear,
-+                     SamplerAddressMode::Repeat,
-+                     SamplerAddressMode::Repeat,
-+                     SamplerAddressMode::Repeat,
-+                     0.0,
-+                     1.0,
-+                     6.0,
-+                     1_000.0)
-+            .unwrap()
++
++        let min_lod = 6.0;
++        // This custom sampler used a min_lod of 6 to display the work we have done in this section
++        //      changing the above variable will change which mipmap is used.
++        Sampler::new(
++            device.clone(),
++            Filter::Linear,
++            Filter::Linear,
++            MipmapMode::Linear,
++            SamplerAddressMode::Repeat,
++            SamplerAddressMode::Repeat,
++            SamplerAddressMode::Repeat,
++            0.0,
++            1.0,
++            min_lod,
++            1_000.0
++        ).unwrap()
      }
  
      fn load_model() -> (Vec<Vertex>, Vec<u32>) {
