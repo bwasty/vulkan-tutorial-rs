@@ -1,6 +1,6 @@
 --- a/25_combined_image_sampler.rs
 +++ b/26_depth_buffering.rs
-@@ -32,18 +32,20 @@ use vulkano::swapchain::{
+@@ -33,18 +33,20 @@ use vulkano::swapchain::{
      acquire_next_image,
      AcquireError,
  };
@@ -23,27 +23,7 @@
  };
  use vulkano::framebuffer::{
      RenderPassAbstract,
-@@ -65,14 +67,13 @@ use vulkano::buffer::{
- };
- use vulkano::descriptor::descriptor_set::{
-     FixedSizeDescriptorSetsPool,
--    FixedSizeDescriptorSet
-+    FixedSizeDescriptorSet,
-+    PersistentDescriptorSetBuf,
-+    PersistentDescriptorSetImg,
-+    PersistentDescriptorSetSampler,
- };
--
--use image::GenericImageView;
- use vulkano::sampler::Sampler;
--use vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf;
--use vulkano::descriptor::descriptor_set::PersistentDescriptorSetImg;
--use vulkano::descriptor::descriptor_set::PersistentDescriptorSetSampler;
-+use image::GenericImageView;
- 
- const WIDTH: u32 = 800;
- const HEIGHT: u32 = 600;
-@@ -112,12 +113,12 @@ impl QueueFamilyIndices {
+@@ -121,12 +123,12 @@ impl QueueFamilyIndices {
  
  #[derive(Copy, Clone)]
  struct Vertex {
@@ -58,8 +38,8 @@
          Self { pos, color, tex }
      }
  }
-@@ -131,17 +132,25 @@ struct UniformBufferObject {
-     proj: glm::Mat4,
+@@ -140,17 +142,25 @@ struct UniformBufferObject {
+     proj: Matrix4<f32>,
  }
  
 -fn vertices() -> [Vertex; 4] {
@@ -91,7 +71,7 @@
  }
  
  type DescriptorSetUBO = PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>;
-@@ -178,6 +187,8 @@ struct HelloTriangleApplication {
+@@ -187,6 +197,8 @@ struct HelloTriangleApplication {
  
      command_buffers: Vec<Arc<AutoCommandBuffer>>,
  
@@ -100,7 +80,7 @@
      previous_frame_end: Option<Box<GpuFuture>>,
      recreate_swap_chain: bool,
  
-@@ -197,11 +208,14 @@ impl HelloTriangleApplication {
+@@ -206,11 +218,14 @@ impl HelloTriangleApplication {
          let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
              &device, &graphics_queue, &present_queue, None);
  
@@ -117,7 +97,7 @@
  
          let start_time = Instant::now();
  
-@@ -246,6 +260,8 @@ impl HelloTriangleApplication {
+@@ -255,6 +270,8 @@ impl HelloTriangleApplication {
  
              command_buffers: vec![],
  
@@ -126,7 +106,7 @@
              previous_frame_end,
              recreate_swap_chain: false,
  
-@@ -431,7 +447,22 @@ impl HelloTriangleApplication {
+@@ -440,7 +457,22 @@ impl HelloTriangleApplication {
          (swap_chain, images)
      }
  
@@ -150,7 +130,7 @@
          Arc::new(single_pass_renderpass!(device.clone(),
              attachments: {
                  color: {
-@@ -439,11 +470,19 @@ impl HelloTriangleApplication {
+@@ -448,11 +480,19 @@ impl HelloTriangleApplication {
                      store: Store,
                      format: color_format,
                      samples: 1,
@@ -171,7 +151,7 @@
              }
          ).unwrap())
      }
-@@ -456,14 +495,14 @@ impl HelloTriangleApplication {
+@@ -465,14 +505,14 @@ impl HelloTriangleApplication {
          mod vertex_shader {
              vulkano_shaders::shader! {
                 ty: "vertex",
@@ -188,7 +168,7 @@
              }
          }
  
-@@ -494,6 +533,7 @@ impl HelloTriangleApplication {
+@@ -503,6 +543,7 @@ impl HelloTriangleApplication {
              .front_face_counter_clockwise()
              // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
              .blend_pass_through() // = default
@@ -196,7 +176,7 @@
              .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
              .build(device.clone())
              .unwrap()
-@@ -502,12 +542,14 @@ impl HelloTriangleApplication {
+@@ -511,12 +552,14 @@ impl HelloTriangleApplication {
  
      fn create_framebuffers(
          swap_chain_images: &[Arc<SwapchainImage<Window>>],
@@ -213,7 +193,7 @@
                      .build().unwrap());
                  fba
              }
-@@ -628,7 +670,7 @@ impl HelloTriangleApplication {
+@@ -637,7 +680,7 @@ impl HelloTriangleApplication {
                      .unwrap()
                      .update_buffer(self.uniform_buffers[i].clone(), Self::update_uniform_buffer(self.start_time, dimensions))
                      .unwrap()
@@ -222,7 +202,7 @@
                      .unwrap()
                      .draw_indexed(
                          self.graphics_pipeline.clone(),
-@@ -805,13 +847,17 @@ impl HelloTriangleApplication {
+@@ -808,13 +851,17 @@ impl HelloTriangleApplication {
      fn recreate_swap_chain(&mut self) {
          let (swap_chain, images) = Self::create_swap_chain(&self.instance, &self.surface, self.physical_device_index,
              &self.device, &self.graphics_queue, &self.present_queue, Some(self.swap_chain.clone()));
