@@ -3,7 +3,8 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
 
 **Goal**: Rust port with code structure as similar as possible to the original C++, so the original tutorial can easily be followed (similar to [learn-opengl-rs](https://github.com/bwasty/learn-opengl-rs)).
 
-**Current State**: The chapters `Drawing a triangle` and `Vertex buffers` are complete.
+**Current State**: The tutorial is finished but liable to change as Vulkano changes. If you notice anything wrong or
+have a suggestion, please submit an issue 
 
 ---
 * [Introduction](#introduction)
@@ -446,4 +447,6 @@ blitting and manipulation is done in Vulkan.
 
 [Diff](src/bin/28_generating_mipmaps.rs.diff) / [Complete Code](src/bin/28_generating_mipmaps.rs)
  
-## Multisampling (*TODO*)
+## Multisampling
+
+[Diff](src/bin/29_multisampling.rs.diff) / [Complete Code](src/bin/29_multisampling.rs)

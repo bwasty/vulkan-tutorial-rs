@@ -1,0 +1,200 @@
+--- a/28_generating_mipmaps.rs
++++ b/29_multisampling.rs
+@@ -85,8 +85,6 @@ use vulkano::descriptor::descriptor_set::{
+ use vulkano::sampler::{
+     Sampler,
+     Filter,
+-    MipmapMode,
+-    SamplerAddressMode,
+ };
+ use image::GenericImageView;
+ 
+@@ -183,6 +181,7 @@ struct HelloTriangleApplication {
+     command_buffers: Vec<Arc<AutoCommandBuffer>>,
+ 
+     depth_format: Format,
++    sample_count: u32,
+ 
+     previous_frame_end: Option<Box<GpuFuture>>,
+     recreate_swap_chain: bool,
+@@ -203,14 +202,16 @@ impl HelloTriangleApplication {
+         let (swap_chain, swap_chain_images) = Self::create_swap_chain(&instance, &surface, physical_device_index,
+             &device, &graphics_queue, &present_queue, None);
+ 
++        let sample_count = Self::find_sample_count();
++
+         let depth_format = Self::find_depth_format();
+-        let depth_image = Self::create_depth_image(&device, swap_chain.dimensions(), depth_format);
++        let depth_image = Self::create_depth_image(&device, swap_chain.dimensions(), depth_format, sample_count);
+ 
+-        let render_pass = Self::create_render_pass(&device, swap_chain.format(), depth_format);
++        let render_pass = Self::create_render_pass(&device, swap_chain.format(), depth_format, sample_count);
+ 
+         let graphics_pipeline = Self::create_graphics_pipeline(&device, swap_chain.dimensions(), &render_pass);
+ 
+-        let swap_chain_framebuffers = Self::create_framebuffers(&swap_chain_images, &render_pass, &depth_image);
++        let swap_chain_framebuffers = Self::create_framebuffers(&device, &swap_chain_images, &render_pass, &depth_image, sample_count);
+ 
+         let start_time = Instant::now();
+ 
+@@ -258,6 +259,7 @@ impl HelloTriangleApplication {
+             command_buffers: vec![],
+ 
+             depth_format,
++            sample_count,
+ 
+             previous_frame_end,
+             recreate_swap_chain: false,
+@@ -444,42 +446,61 @@ impl HelloTriangleApplication {
+         (swap_chain, images)
+     }
+ 
++    fn find_sample_count() -> u32 {
++        // As with the other places that the c++ tutorial queries for PhysicalDeviceProperties, I
++        // haven't found equivalent functionality in Vulkano.
++
++        // We're going with 8 samples here because it is likely to be supported on most hardware.
++        // If it isn't working for you, try dropping the number down
++        8
++    }
++
+     fn find_depth_format() -> Format {
+-        // this format is guaranteed to be supported by vulkano and as it stands now, I can't figure
+-        // how to do the queries performed in the original tutorial in vulkano...
++        // As with the other places that the c++ tutorial queries for PhysicalDeviceProperties, I
++        // haven't found equivalent functionality in Vulkano.
++
++        // Vulkano guarantees support for this format so we're going to go ahead and use it.
+         Format::D16Unorm
+     }
+ 
+-    fn create_depth_image(device: &Arc<Device>, dimensions: [u32; 2], format: Format) -> Arc<AttachmentImage<Format>> {
+-        AttachmentImage::with_usage(
++    fn create_depth_image(device: &Arc<Device>, dimensions: [u32; 2], format: Format, sample_count: u32) -> Arc<AttachmentImage<Format>> {
++        AttachmentImage::multisampled_with_usage(
+             device.clone(),
+             dimensions,
++            sample_count,
+             format,
+             ImageUsage { depth_stencil_attachment: true, ..ImageUsage::none() }
+         ).unwrap()
+     }
+ 
+-    fn create_render_pass(device: &Arc<Device>, color_format: Format, depth_format: Format) -> Arc<RenderPassAbstract + Send + Sync> {
++    fn create_render_pass(device: &Arc<Device>, color_format: Format, depth_format: Format, sample_count: u32) -> Arc<RenderPassAbstract + Send + Sync> {
+         Arc::new(single_pass_renderpass!(device.clone(),
+             attachments: {
+-                color: {
++                multisample_color: {
+                     load: Clear,
+                     store: Store,
+                     format: color_format,
+-                    samples: 1,
++                    samples: sample_count,
+                 },
+-                depth: {
++                multisample_depth: {
+                     load: Clear,
+                     store: DontCare,
+                     format: depth_format,
+-                    samples: 1,
++                    samples: sample_count,
+                     initial_layout: ImageLayout::Undefined,
+                     final_layout: ImageLayout::DepthStencilAttachmentOptimal,
++                },
++                resolve_color: {
++                    load: DontCare,
++                    store: Store,
++                    format: color_format,
++                    samples: 1,
+                 }
+             },
+             pass: {
+-                color: [color],
+-                depth_stencil: {depth}
++                color: [multisample_color],
++                depth_stencil: {multisample_depth},
++                resolve: [resolve_color]
+             }
+         ).unwrap())
+     }
+@@ -538,15 +559,21 @@ impl HelloTriangleApplication {
+     }
+ 
+     fn create_framebuffers(
++        device: &Arc<Device>,
+         swap_chain_images: &[Arc<SwapchainImage<Window>>],
+         render_pass: &Arc<RenderPassAbstract + Send + Sync>,
+-        depth_image: &Arc<AttachmentImage<Format>>
++        depth_image: &Arc<AttachmentImage<Format>>,
++        sample_count: u32
+     ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
+         swap_chain_images.iter()
+             .map(|image| {
++                let dim = image.dimensions().width_height();
++                let multisample_image = AttachmentImage::transient_multisampled(device.clone(), dim, sample_count, image.format()).unwrap();
++
+                 let fba: Arc<FramebufferAbstract + Send + Sync> = Arc::new(Framebuffer::start(render_pass.clone())
+-                    .add(image.clone()) .unwrap()
++                    .add(multisample_image.clone()).unwrap()
+                     .add(depth_image.clone()).unwrap()
++                    .add(image.clone()) .unwrap()
+                     .build().unwrap());
+                 fba
+             }
+@@ -642,25 +669,7 @@ impl HelloTriangleApplication {
+     }
+ 
+     fn create_image_sampler(device: &Arc<Device>) -> Arc<Sampler> {
+-        // This is the standard sampler but for this section we are using a custom sampler to show the work we have done
+-        // Sampler::simple_repeat_linear(device.clone())
+-
+-        let min_lod = 6.0;
+-        // This custom sampler used a min_lod of 6 to display the work we have done in this section
+-        //      changing the above variable will change which mipmap is used.
+-        Sampler::new(
+-            device.clone(),
+-            Filter::Linear,
+-            Filter::Linear,
+-            MipmapMode::Linear,
+-            SamplerAddressMode::Repeat,
+-            SamplerAddressMode::Repeat,
+-            SamplerAddressMode::Repeat,
+-            0.0,
+-            1.0,
+-            min_lod,
+-            1_000.0
+-        ).unwrap()
++        Sampler::simple_repeat_linear(device.clone())
+     }
+ 
+     fn load_model() -> (Vec<Vertex>, Vec<u32>) {
+@@ -789,7 +798,7 @@ impl HelloTriangleApplication {
+                     .unwrap()
+                     .update_buffer(self.uniform_buffers[i].clone(), Self::update_uniform_buffer(self.start_time, dimensions))
+                     .unwrap()
+-                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into(), ClearValue::Depth(1.0)])
++                    .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into(), ClearValue::Depth(1.0), ClearValue::None])
+                     .unwrap()
+                     .draw_indexed(
+                         self.graphics_pipeline.clone(),
+@@ -967,16 +976,16 @@ impl HelloTriangleApplication {
+         let (swap_chain, images) = Self::create_swap_chain(&self.instance, &self.surface, self.physical_device_index,
+             &self.device, &self.graphics_queue, &self.present_queue, Some(self.swap_chain.clone()));
+ 
+-        let depth_image = Self::create_depth_image(&self.device, swap_chain.dimensions(), self.depth_format);
++        let depth_image = Self::create_depth_image(&self.device, swap_chain.dimensions(), self.depth_format, self.sample_count);
+ 
+         self.swap_chain = swap_chain;
+         self.swap_chain_images = images;
+ 
+-        self.render_pass = Self::create_render_pass(&self.device, self.swap_chain.format(), self.depth_format);
++        self.render_pass = Self::create_render_pass(&self.device, self.swap_chain.format(), self.depth_format, self.sample_count);
+         self.graphics_pipeline = Self::create_graphics_pipeline(&self.device, self.swap_chain.dimensions(),
+             &self.render_pass);
+ 
+-        self.swap_chain_framebuffers = Self::create_framebuffers(&self.swap_chain_images, &self.render_pass, &depth_image);
++        self.swap_chain_framebuffers = Self::create_framebuffers(&self.device, &self.swap_chain_images, &self.render_pass, &depth_image, self.sample_count);
+         self.create_command_buffers();
+     }
+ }
