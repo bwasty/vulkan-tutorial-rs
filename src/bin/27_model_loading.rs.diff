@@ -5,10 +5,10 @@
  extern crate winit;
  extern crate image;
 +extern crate tobj;
+ extern crate cgmath;
  
  use std::sync::{Arc, Mutex};
- use std::collections::HashSet;
-@@ -82,7 +83,8 @@ const VALIDATION_LAYERS: &[&str] =  &[
+@@ -92,7 +93,8 @@ const VALIDATION_LAYERS: &[&str] =  &[
      "VK_LAYER_LUNARG_standard_validation"
  ];
  
@@ -18,8 +18,8 @@
  
  /// Required device extensions
  fn device_extensions() -> DeviceExtensions {
-@@ -132,27 +134,6 @@ struct UniformBufferObject {
-     proj: glm::Mat4,
+@@ -142,27 +144,6 @@ struct UniformBufferObject {
+     proj: Matrix4<f32>,
  }
  
 -fn vertices() -> [Vertex; 8] {
@@ -46,7 +46,7 @@
  type DescriptorSetUBO = PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>;
  type DescriptorSetImage = PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>;
  type DescriptorSetResources = ((((), DescriptorSetUBO), DescriptorSetImage), PersistentDescriptorSetSampler);
-@@ -180,7 +161,7 @@ struct HelloTriangleApplication {
+@@ -190,7 +171,7 @@ struct HelloTriangleApplication {
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
  
      vertex_buffer: Arc<BufferAccess + Send + Sync>,
@@ -55,7 +55,7 @@
      uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
  
      descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>,
-@@ -222,8 +203,10 @@ impl HelloTriangleApplication {
+@@ -232,8 +213,10 @@ impl HelloTriangleApplication {
          let texture_image = Self::create_texture_image(&graphics_queue);
          let image_sampler = Self::create_image_sampler(&device);
  
@@ -68,7 +68,7 @@
          let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
  
          let descriptor_sets_pool = Self::create_descriptor_pool(&graphics_pipeline);
-@@ -580,18 +563,54 @@ impl HelloTriangleApplication {
+@@ -590,18 +573,54 @@ impl HelloTriangleApplication {
          Sampler::simple_repeat_linear(device.clone())
      }
  
