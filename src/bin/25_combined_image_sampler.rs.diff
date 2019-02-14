@@ -1,23 +1,17 @@
 --- a/24_image_sampler.rs
 +++ b/25_combined_image_sampler.rs
-@@ -65,12 +65,14 @@ use vulkano::buffer::{
- };
+@@ -67,7 +67,9 @@ use vulkano::buffer::{
  use vulkano::descriptor::descriptor_set::{
      FixedSizeDescriptorSetsPool,
--    FixedSizeDescriptorSet,
+     FixedSizeDescriptorSet,
 -    PersistentDescriptorSetBuf
-+    FixedSizeDescriptorSet
++    PersistentDescriptorSetBuf,
++    PersistentDescriptorSetImg,
++    PersistentDescriptorSetSampler,
  };
  
  use image::GenericImageView;
- use vulkano::sampler::Sampler;
-+use vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf;
-+use vulkano::descriptor::descriptor_set::PersistentDescriptorSetImg;
-+use vulkano::descriptor::descriptor_set::PersistentDescriptorSetSampler;
- 
- const WIDTH: u32 = 800;
- const HEIGHT: u32 = 600;
-@@ -112,13 +114,14 @@ impl QueueFamilyIndices {
+@@ -121,13 +123,14 @@ impl QueueFamilyIndices {
  struct Vertex {
      pos: [f32; 2],
      color: [f32; 3],
@@ -35,7 +29,7 @@
  
  #[allow(dead_code)]
  #[derive(Copy, Clone)]
-@@ -130,10 +133,10 @@ struct UniformBufferObject {
+@@ -139,10 +142,10 @@ struct UniformBufferObject {
  
  fn vertices() -> [Vertex; 4] {
      [
@@ -50,7 +44,7 @@
      ]
  }
  
-@@ -141,7 +144,9 @@ fn indices() -> [u16; 6] {
+@@ -150,7 +153,9 @@ fn indices() -> [u16; 6] {
      [0, 1, 2, 2, 3, 0]
  }
  
@@ -61,7 +55,7 @@
  
  struct HelloTriangleApplication {
      instance: Arc<Instance>,
-@@ -165,11 +170,6 @@ struct HelloTriangleApplication {
+@@ -174,11 +179,6 @@ struct HelloTriangleApplication {
  
      swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
  
@@ -73,7 +67,7 @@
      vertex_buffer: Arc<BufferAccess + Send + Sync>,
      index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
      uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
-@@ -213,7 +213,7 @@ impl HelloTriangleApplication {
+@@ -222,7 +222,7 @@ impl HelloTriangleApplication {
          let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
  
          let descriptor_sets_pool = Self::create_descriptor_pool(&graphics_pipeline);
@@ -82,7 +76,7 @@
  
          let previous_frame_end = Some(Self::create_sync_objects(&device));
  
-@@ -238,9 +238,6 @@ impl HelloTriangleApplication {
+@@ -247,9 +247,6 @@ impl HelloTriangleApplication {
  
              swap_chain_framebuffers,
  
@@ -92,7 +86,7 @@
              vertex_buffer,
              index_buffer,
              uniform_buffers,
-@@ -459,14 +456,14 @@ impl HelloTriangleApplication {
+@@ -468,14 +465,14 @@ impl HelloTriangleApplication {
          mod vertex_shader {
              vulkano_shaders::shader! {
                 ty: "vertex",
@@ -109,7 +103,7 @@
              }
          }
  
-@@ -597,8 +594,9 @@ impl HelloTriangleApplication {
+@@ -606,8 +603,9 @@ impl HelloTriangleApplication {
      fn create_descriptor_sets(
          pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
          uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
@@ -121,7 +115,7 @@
          uniform_buffers
              .iter()
              .map(|uniform_buffer|
-@@ -609,6 +607,8 @@ impl HelloTriangleApplication {
+@@ -618,6 +616,8 @@ impl HelloTriangleApplication {
                          .next()
                          .add_buffer(uniform_buffer.clone())
                          .unwrap()
