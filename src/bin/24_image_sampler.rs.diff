@@ -1,14 +1,26 @@
 --- a/23_images.rs
 +++ b/24_image_sampler.rs
-@@ -70,6 +70,7 @@ use vulkano::descriptor::descriptor_set::{
+@@ -69,6 +69,10 @@ use vulkano::descriptor::descriptor_set::{
+     FixedSizeDescriptorSet,
+     PersistentDescriptorSetBuf
+ };
++
++use image::GenericImageView;
++use vulkano::sampler::Sampler;
++
+ use cgmath::{
+     Rad,
+     Deg,
+@@ -77,8 +81,6 @@ use cgmath::{
+     Point3
  };
  
- use image::GenericImageView;
-+use vulkano::sampler::Sampler;
- 
+-use image::GenericImageView;
+-
  const WIDTH: u32 = 800;
  const HEIGHT: u32 = 600;
-@@ -166,6 +167,8 @@ struct HelloTriangleApplication {
+ 
+@@ -174,6 +176,8 @@ struct HelloTriangleApplication {
  
      #[allow(dead_code)]
      texture_image: Arc<ImmutableImage<Format>>,
@@ -17,7 +29,7 @@
  
      vertex_buffer: Arc<BufferAccess + Send + Sync>,
      index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
-@@ -203,6 +206,7 @@ impl HelloTriangleApplication {
+@@ -211,6 +215,7 @@ impl HelloTriangleApplication {
          let start_time = Instant::now();
  
          let texture_image = Self::create_texture_image(&graphics_queue);
@@ -25,7 +37,7 @@
  
          let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
          let index_buffer = Self::create_index_buffer(&graphics_queue);
-@@ -235,6 +239,7 @@ impl HelloTriangleApplication {
+@@ -243,6 +248,7 @@ impl HelloTriangleApplication {
              swap_chain_framebuffers,
  
              texture_image,
@@ -33,7 +45,7 @@
  
              vertex_buffer,
              index_buffer,
-@@ -532,6 +537,10 @@ impl HelloTriangleApplication {
+@@ -540,6 +546,10 @@ impl HelloTriangleApplication {
          image_view
      }
  
@@ -44,7 +56,7 @@
      fn create_vertex_buffer(graphics_queue: &Arc<Queue>) -> Arc<BufferAccess + Send + Sync> {
          let (buffer, future) = ImmutableBuffer::from_iter(
              vertices().iter().cloned(), BufferUsage::vertex_buffer(),
-@@ -585,7 +594,6 @@ impl HelloTriangleApplication {
+@@ -593,7 +603,6 @@ impl HelloTriangleApplication {
          )
      }
  
