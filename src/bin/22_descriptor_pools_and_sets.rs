@@ -707,6 +707,10 @@ impl HelloTriangleApplication {
 
         let command_buffer = self.command_buffers[image_index].clone();
 
+        // we're joining on the previous future but the CPU is running faster than the GPU so
+        // eventually it stutters, and jumps ahead to the newer frames.
+        //
+        // See vulkano issue 1135: https://github.com/vulkano-rs/vulkano/issues/1135
         let future = self.previous_frame_end.take().unwrap()
             .join(acquire_future)
             .then_execute(self.graphics_queue.clone(), command_buffer)
@@ -716,6 +720,11 @@ impl HelloTriangleApplication {
 
         match future {
             Ok(future) => {
+                // This makes sure the CPU stays in sync with the GPU
+                // Not sure if this means we don't need to store the previous_frame_end since we're
+                // explicitly waiting for it?
+                future.wait(None);
+                
                 self.previous_frame_end = Some(Box::new(future) as Box<_>);
             }
             Err(vulkano::sync::FlushError::OutOfDate) => {
