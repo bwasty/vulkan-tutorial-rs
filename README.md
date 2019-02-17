@@ -70,7 +70,7 @@ Then add this to your `Cargo.toml`:
 vulkano = "0.11.1"
 ```
 
-On macOS, copy [mac-env.sh](mac-env.sh), adapt the `VULKAN_SDK` path if necessary and `source` the file in your terminal. See also [vulkano-rs/vulkano#macos-and-ios-setup](https://github.com/vulkano-rs/vulkano#macos-and-ios-setup).
+On macOS, copy [mac-env.sh](mac-env.sh), adapt the `VULKAN_SDK` path if necessary and `source` the file in your terminal. See also [vulkano-rs/vulkano#macos-and-ios-specific-setup](https://github.com/vulkano-rs/vulkano#macos-and-ios-specific-setup).
 
 ## Drawing a triangle
 ### Setup
