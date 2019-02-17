@@ -106,7 +106,7 @@ fn main() {
 Vulkano handles calling `vkDestroyXXX`/`vkFreeXXX` in the `Drop` implementation of all wrapper objects, so we will skip all cleanup code.
 
 ##### Integrating ~GLFW~ winit
-Instead of GLFW we're using [winit](https://github.com/tomaka/winit), an alternative window managment library written in pure Rust.
+Instead of GLFW we'll be using [winit](https://github.com/tomaka/winit), an alternative window managment library written in pure Rust.
 
 Add this to your Cargo.toml:
 ```
@@ -218,10 +218,12 @@ struct HelloTriangleApplication {
     }
 ```
 
-[Complete code](src/bin/01_instance_creation.rs)
+[Diff](src/bin/01_instance_creation.rs.diff) / [Complete code](src/bin/01_instance_creation.rs)
 
 #### Validation layers
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers
+
+From here on we'll just link to the code instead of putting everything in the README:
 
 [Diff](src/bin/02_validation_layers.rs.diff) / [Complete code](src/bin/02_validation_layers.rs)
 
