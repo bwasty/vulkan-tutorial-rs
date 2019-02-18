@@ -10,7 +10,8 @@ vulkano-shaders = "0.11.1"
 image = "0.20.1"
 vulkano-win = "0.11.1"
 winit = "0.18.0"
-glm = "0.2.3"
+cgmath = "0.17.0"
+tobj = "0.1.6"
 
 # [[bin]]
 # name = "main"

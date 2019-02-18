@@ -2,6 +2,7 @@
 extern crate vulkano;
 extern crate vulkano_win;
 extern crate winit;
+extern crate cgmath;
 
 use std::sync::Arc;
 use std::collections::HashSet;
@@ -57,6 +58,13 @@ use vulkano::buffer::{
     TypedBufferAccess,
     CpuAccessibleBuffer,
 };
+use cgmath::{
+    Rad,
+    Deg,
+    Matrix4,
+    Vector3,
+    Point3
+};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
@@ -109,9 +117,9 @@ impl_vertex!(Vertex, pos, color);
 #[allow(dead_code)]
 #[derive(Copy, Clone)]
 struct UniformBufferObject {
-    model: glm::Mat4,
-    view: glm::Mat4,
-    proj: glm::Mat4,
+    model: Matrix4<f32>,
+    view: Matrix4<f32>,
+    proj: Matrix4<f32>,
 }
 
 fn vertices() -> [Vertex; 4] {
@@ -682,28 +690,22 @@ impl HelloTriangleApplication {
         let duration = Instant::now().duration_since(start_time);
         let elapsed = (duration.as_secs() * 1000) + u64::from(duration.subsec_millis());
 
-        let identity_matrix = glm::mat4(
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+        let model = Matrix4::from_angle_z(Rad::from(Deg(elapsed as f32 * 0.180)));
+
+        let view = Matrix4::look_at(
+            Point3::new(2.0, 2.0, 2.0),
+            Point3::new(0.0, 0.0, 0.0),
+            Vector3::new(0.0, 0.0, 1.0)
         );
 
-        let model = glm::ext::rotate(&identity_matrix, (elapsed as f32) * glm::radians(0.180), glm::vec3(0.0, 0.0, 1.00));
-
-        let view = glm::ext::look_at(
-            glm::vec3(2.0, 2.0, 2.0),
-            glm::vec3(0.0, 0.0, 0.0),
-            glm::vec3(0.0, 0.0, 1.0)
-        );
-        let mut proj = glm::ext::perspective(
-            glm::radians(45.0,),
+        let mut proj = cgmath::perspective(
+            Rad::from(Deg(45.0)),
             dimensions[0] as f32 / dimensions[1] as f32,
             0.1,
             10.0
         );
 
-        proj.c1.y *= -1.0;
+        proj.y.y *= -1.0;
 
         UniformBufferObject { model, view, proj }
     }

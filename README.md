@@ -40,9 +40,9 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
     * [Staging buffer](#staging-buffer)
     * [Index buffer](#index-buffer)
 * [Uniform buffers](#uniform-buffers)
-* [Texture mapping (<em>TODO</em>)](#texture-mapping-todo)
-* [Depth buffering (<em>TODO</em>)](#depth-buffering-todo)
-* [Loading models (<em>TODO</em>)](#loading-models-todo)
+* [Texture mapping (<em>TODO</em>)](#texture-mapping)
+* [Depth buffering (<em>TODO</em>)](#depth-buffering)
+* [Loading models (<em>TODO</em>)](#loading-models)
 * [Generating Mipmaps (<em>TODO</em>)](#generating-mipmaps-todo)
 * [Multisampling (<em>TODO</em>)](#multisampling-todo)
 
@@ -353,8 +353,98 @@ include a matching descriptor set.
 [Vertex Shader Diff](src/bin/21_shader_uniformbuffer.vert.diff) / [Vertex Shader](src/bin/21_shader_uniformbuffer.vert)
 
 [Diff](src/bin/21_descriptor_layout_and_buffer.rs.diff) / [Complete code](src/bin/21_descriptor_layout_and_buffer.rs)
-## Texture mapping (*TODO*)
-## Depth buffering (*TODO*)
-## Loading models (*TODO*)
-## Generating Mipmaps (*TODO*)
+
+### Descriptor Pool and Sets
+https://vulkan-tutorial.com/Uniform_buffers/Descriptor_pool_and_sets
+
+In this section we introduce a new resource, Descriptor Sets, which allow us to specify what buffer resources to transfer to the GPU.
+In the last section we made a change to our vertex shader to expect a buffer in binding 0 and descriptor sets allow us to specify
+the actual memory that will occupy that binding.
+
+For each uniform buffer we created in the last section, we create a descriptor set with the buffer bound to it, giving us the same
+number of descriptor sets as swap chain images. At the beginning of each frame we now recreate the command buffer, which 
+includes a new command to copy our updated UniformBufferObject into the respective uniform buffer before the render pass.
+
+Note that due to the flipping of the Y axis in the projection matrix, we now need to tell vulkan to draw the vertices in
+the opposite direction.
+
+[Diff](src/bin/22_descriptor_pools_and_sets.rs.diff) / [Complete code](src/bin/22_descriptor_pools_and_sets.rs)
+## Texture mapping
+### Images
+https://vulkan-tutorial.com/Texture_mapping/Images
+
+This section is much simpler than the C++ counterpart due to the image library we use and Vulkano's internal 
+representation of images. The image library handles converting the image to a buffer in the right format, and then all we
+need to do is pass this buffer into the appropriate constructor.
+
+[Diff](src/bin/23_images.rs.diff) / [Complete code](src/bin/23_images.rs)
+
+### Image sampler
+https://vulkan-tutorial.com/Texture_mapping/Image_view_and_sampler
+
+This section is incredibly simple. The image we created in the last section includes the functionality of an image view 
+and Vulkano includes a function to create a simple linear sampler.
+
+[Diff](src/bin/24_image_sampler.rs.diff) / [Complete code](src/bin/24_image_sampler.rs)
+
+### Combined image sampler
+https://vulkan-tutorial.com/Texture_mapping/Combined_image_sampler
+
+In this section we update our Vertex type to include texel coordinates, update our vertex shader to expect this information,
+and update our fragment shader to receive a texture sampler to actually render our image.
+
+Since we have a new binding in our fragment shader we need to update our descriptor set to match this binding so we add a call
+to add a sampled image and pass in the texture image and image sampler we created in the previous sections.
+
+[Vertex shader diff](src/bin/25_shader_texturesampler.vert.diff) / [Vertex shader code](src/bin/25_shader_texturesampler.vert)
+
+[Fragment shader diff](src/bin/25_shader_texturesampler.frag.diff) / [Fragment shader code](src/bin/25_shader_texturesampler.frag)
+
+[Diff](src/bin/25_combined_image_sampler.rs.diff) / [Complete code](src/bin/25_combined_image_sampler.rs)
+## Depth buffering
+
+In this section we update our Vertex type to include a third input for depth, add a depth image to our render pass. 
+In the C++ tutorial there is querying to determine the proper depth format but I can't find a similar functionality in Vulkano. 
+If I'm missing something, feel free to let me know. The depth format we use is guaranteed to be supported according to Vulkano docs.
+
+[Vertex shader diff](src/bin/26_shader_depthbuffering.vert.diff) / [Vertex shader code](src/bin/26_shader_depthbuffering.vert)
+
+[Fragment shader diff](src/bin/26_shader_depthbuffering.frag.diff) / [Fragment shader code](src/bin/26_shader_depthbuffering.frag)
+
+[Diff](src/bin/26_depth_buffering.rs.diff) / [Complete code](src/bin/26_depth_buffering.rs)
+
+## Loading models
+In this section we add a new dependency for loading obj files, [tobj](http://www.willusher.io/tobj/tobj/index.html),
+and remove our top level functions for vertices and indices. Loading the model is fairly straight forward -- we iterate through
+each of the models in the file and for each of the indices of that model, we get its relevant position and texture coordinate details.
+
+Unlike the C++ tutorial, vertex deduplication is not necessary as it is handled by tobj as stated in the docs:
+```
+Indices are also loaded and may re-use vertices already existing in the mesh.
+```
+
+[Diff](src/bin/27_model_loading.rs.diff) / [Complete Code](src/bin/27_model_loading.rs)
+ 
+## Generating Mipmaps
+
+***Warning***: Currently this section results in Validation Layer warnings and may not behave the same on all machines.
+
+For this section, it's difficult to reproduce the original behavior of the c++ Vulkan tutorial while still idiomatically using Vulkano.
+At the moment Vulkano does not have a great way of handling layouts transitions while blitting when the source and destination
+are the same buffer. Writing the same behavior with memory barriers would involve diving into using Vulkano's internal `sys`
+types and would essentially be bypassing the higher level abstractions and conveniences that make this library stand out from
+projects that provide near one-to-one bindings like [Ash](https://github.com/MaikKlein/ash). Given this is a tutorial on Vulkano,
+it did not seem like a good idea to introduce unsafe code that was less idiomatic. As mentioned above, if you want to see a
+more direct Rust translation of this section closer to the Vulkan C API, have a look at the Ash equivalent of this tutorial 
+[vulkan-tutorial-rust](https://github.com/Usami-Renko/vulkan-tutorial-rust).
+
+Given Vulkano is under active development and not stable, we will update this if correct, idiomatic ways of handling this
+type of blitting are added to Vulkano.
+
+Also to note and is mentioned on the original tutorial, most of the time mipmaps are generated at the time of texture
+creation rather than during application for performance reasons. This section is done for completeness and to show how image
+blitting and manipulation is done in Vulkan.
+
+[Diff](src/bin/28_generating_mipmaps.rs.diff) / [Complete Code](src/bin/28_generating_mipmaps.rs)
+ 
 ## Multisampling (*TODO*)
