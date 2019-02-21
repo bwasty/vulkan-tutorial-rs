@@ -1,0 +1,175 @@
+--- a/27_model_loading.rs
++++ b/28_generating_mipmaps.rs
+@@ -37,12 +37,20 @@ use vulkano::swapchain::{
+ use vulkano::format::{Format, ClearValue};
+ use vulkano::image::{
+     ImageUsage,
+-    swapchain::SwapchainImage,
+     ImmutableImage,
+     Dimensions,
+-    AttachmentImage
++    AttachmentImage,
++    ImageDimensions,
++    ImageLayout,
++    MipmapsCount,
++    ImageAccess,
++    swapchain::SwapchainImage,
++};
++use vulkano::sync::{
++    self,
++    SharingMode,
++    GpuFuture,
+ };
+-use vulkano::sync::{self, SharingMode, GpuFuture};
+ use vulkano::pipeline::{
+     GraphicsPipeline,
+     GraphicsPipelineAbstract,
+@@ -59,6 +67,7 @@ use vulkano::command_buffer::{
+     AutoCommandBuffer,
+     AutoCommandBufferBuilder,
+     DynamicState,
++    CommandBuffer,
+ };
+ use vulkano::buffer::{
+     immutable::ImmutableBuffer,
+@@ -74,9 +83,14 @@ use vulkano::descriptor::descriptor_set::{
+     PersistentDescriptorSetImg,
+     PersistentDescriptorSetSampler,
+ };
++use vulkano::sampler::{
++    Sampler,
++    Filter,
++    MipmapMode,
++    SamplerAddressMode,
++};
+ 
+ use image::GenericImageView;
+-use vulkano::sampler::Sampler;
+ 
+ use cgmath::{
+     Rad,
+@@ -549,28 +563,114 @@ impl HelloTriangleApplication {
+         ).collect::<Vec<_>>()
+     }
+ 
+-    fn create_texture_image(graphics_queue: &Arc<Queue>) -> Arc<ImmutableImage<Format>> {
+-        let image = image::open(TEXTURE_PATH).unwrap();
++    fn get_mip_dim(mip_idx: u32, img_dimensions: ImageDimensions) -> Result<[i32; 3], String> {
++        if let Some(dim) = img_dimensions.mipmap_dimensions(mip_idx) {
++            if let ImageDimensions::Dim2d { width, height, .. } = dim {
++                Ok([width as i32, height as i32, 1])
++            } else {
++                Err("MipMapping: Did not get 2D image for blitting".to_string())
++            }
++        } else {
++            Err(format!("MipMapping: image has no mip map at level {}", mip_idx).to_string())
++        }
++    }
+ 
+-        let width = image.width();
+-        let height = image.height();
++    fn create_texture_image(queue: &Arc<Queue>) -> Arc<ImmutableImage<Format>> {
++        let image = image::open(TEXTURE_PATH).unwrap();
++        let dimensions = Dimensions::Dim2d { width: image.width(), height: image.height() };
+ 
+         let image_rgba = image.to_rgba();
+ 
+-        let (image_view, future) = ImmutableImage::from_iter(
+-            image_rgba.into_raw().iter().cloned(),
+-            Dimensions::Dim2d{ width, height },
++        let image_usage = ImageUsage {
++            transfer_destination: true,
++            transfer_source: true,
++            sampled: true,
++            ..ImageUsage::none()
++        };
++
++        let (image, image_init) = ImmutableImage::uninitialized(
++            queue.device().clone(),
++            dimensions,
+             Format::R8G8B8A8Unorm,
+-            graphics_queue.clone()
++            MipmapsCount::Log2,
++            image_usage,
++            ImageLayout::TransferDstOptimal,
++            queue.device().active_queue_families(),
++        ).unwrap();
++
++        let source = CpuAccessibleBuffer::from_iter(
++            queue.device().clone(),
++            BufferUsage { transfer_source: true, ..BufferUsage::none() },
++            image_rgba.into_raw().iter().cloned()
+         ).unwrap();
+ 
++        let mut cb = AutoCommandBufferBuilder::new(
++            queue.device().clone(), queue.family()
++        ).expect("Failed to start command buffer fro image creation!");
++
++        cb = cb.copy_buffer_to_image_dimensions(
++            source,
++            image_init,
++            [0, 0, 0],
++            image.dimensions().width_height_depth(),
++            0,
++            image.dimensions().array_layers(),
++            0
++        ).unwrap();
++
++        let img_dimensions = ImageAccess::dimensions(&image);
++
++        for mip_idx in 1..image.mipmap_levels() {
++            let source_dim = Self::get_mip_dim(mip_idx - 1, img_dimensions).unwrap();
++            let dest_dim = Self::get_mip_dim(mip_idx, img_dimensions).unwrap();
++
++            cb = cb.blit_image(
++                image.clone(),
++                [0; 3],
++                source_dim,
++                0,
++                mip_idx - 1,
++                image.clone(),
++                [0; 3],
++                dest_dim,
++                0,
++                mip_idx,
++                1,
++                Filter::Linear
++            ).unwrap();
++
++            // todo -> figure out if i need to divide mipWidth and mipHeight by 2
++        }
++
++        let final_cb = cb.build().expect("failed to build MipMapping command buffer");
++
++        let future = final_cb.execute(queue.clone()).unwrap();
++
+         future.flush().unwrap();
+ 
+-        image_view
++        image
+     }
+ 
+     fn create_image_sampler(device: &Arc<Device>) -> Arc<Sampler> {
+-        Sampler::simple_repeat_linear(device.clone())
++        // This is the standard sampler but for this section we are using a custom sampler to show the work we have done
++        // Sampler::simple_repeat_linear(device.clone())
++
++        let min_lod = 6.0;
++        // This custom sampler used a min_lod of 6 to display the work we have done in this section
++        //      changing the above variable will change which mipmap is used.
++        Sampler::new(
++            device.clone(),
++            Filter::Linear,
++            Filter::Linear,
++            MipmapMode::Linear,
++            SamplerAddressMode::Repeat,
++            SamplerAddressMode::Repeat,
++            SamplerAddressMode::Repeat,
++            0.0,
++            1.0,
++            min_lod,
++            1_000.0
++        ).unwrap()
+     }
+ 
+     fn load_model() -> (Vec<Vertex>, Vec<u32>) {

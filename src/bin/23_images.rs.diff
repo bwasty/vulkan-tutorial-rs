@@ -1,0 +1,135 @@
+--- a/22_descriptor_pools_and_sets.rs
++++ b/23_images.rs
+@@ -2,6 +2,7 @@
+ extern crate vulkano;
+ extern crate vulkano_win;
+ extern crate winit;
++extern crate image;
+ extern crate cgmath;
+ 
+ use std::sync::{Arc, Mutex};
+@@ -33,7 +34,12 @@ use vulkano::swapchain::{
+     AcquireError,
+ };
+ use vulkano::format::Format;
+-use vulkano::image::{ImageUsage, swapchain::SwapchainImage};
++use vulkano::image::{
++    ImageUsage,
++    swapchain::SwapchainImage,
++    ImmutableImage,
++    Dimensions
++};
+ use vulkano::sync::{self, SharingMode, GpuFuture};
+ use vulkano::pipeline::{
+     GraphicsPipeline,
+@@ -60,7 +66,8 @@ use vulkano::buffer::{
+ };
+ use vulkano::descriptor::descriptor_set::{
+     FixedSizeDescriptorSetsPool,
+-    FixedSizeDescriptorSet
++    FixedSizeDescriptorSet,
++    PersistentDescriptorSetBuf
+ };
+ use cgmath::{
+     Rad,
+@@ -70,6 +77,8 @@ use cgmath::{
+     Point3
+ };
+ 
++use image::GenericImageView;
++
+ const WIDTH: u32 = 800;
+ const HEIGHT: u32 = 600;
+ 
+@@ -77,6 +86,8 @@ const VALIDATION_LAYERS: &[&str] =  &[
+     "VK_LAYER_LUNARG_standard_validation"
+ ];
+ 
++const TEXTURE_PATH: &str = "src/bin/23_statue.jpg";
++
+ /// Required device extensions
+ fn device_extensions() -> DeviceExtensions {
+     DeviceExtensions {
+@@ -137,6 +148,8 @@ fn indices() -> [u16; 6] {
+     [0, 1, 2, 2, 3, 0]
+ }
+ 
++type DescriptorSetResources = ((), PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>);
++
+ struct HelloTriangleApplication {
+     instance: Arc<Instance>,
+     #[allow(unused)]
+@@ -159,11 +172,14 @@ struct HelloTriangleApplication {
+ 
+     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
+ 
++    #[allow(dead_code)]
++    texture_image: Arc<ImmutableImage<Format>>,
++
+     vertex_buffer: Arc<BufferAccess + Send + Sync>,
+     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
+     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
+ 
+-    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>,
++    descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>,
+ 
+     command_buffers: Vec<Arc<AutoCommandBuffer>>,
+ 
+@@ -194,6 +210,8 @@ impl HelloTriangleApplication {
+ 
+         let start_time = Instant::now();
+ 
++        let texture_image = Self::create_texture_image(&graphics_queue);
++
+         let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
+         let index_buffer = Self::create_index_buffer(&graphics_queue);
+         let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
+@@ -224,6 +242,8 @@ impl HelloTriangleApplication {
+ 
+             swap_chain_framebuffers,
+ 
++            texture_image,
++
+             vertex_buffer,
+             index_buffer,
+             uniform_buffers,
+@@ -500,6 +520,26 @@ impl HelloTriangleApplication {
+         ).collect::<Vec<_>>()
+     }
+ 
++    fn create_texture_image(graphics_queue: &Arc<Queue>) -> Arc<ImmutableImage<Format>> {
++        let image = image::open(TEXTURE_PATH).unwrap();
++
++        let width = image.width();
++        let height = image.height();
++
++        let image_rgba = image.to_rgba();
++
++        let (image_view, future) = ImmutableImage::from_iter(
++            image_rgba.into_raw().iter().cloned(),
++            Dimensions::Dim2d{ width, height },
++            Format::R8G8B8A8Unorm,
++            graphics_queue.clone()
++        ).unwrap();
++
++        future.flush().unwrap();
++
++        image_view
++    }
++
+     fn create_vertex_buffer(graphics_queue: &Arc<Queue>) -> Arc<BufferAccess + Send + Sync> {
+         let (buffer, future) = ImmutableBuffer::from_iter(
+             vertices().iter().cloned(), BufferUsage::vertex_buffer(),
+@@ -553,10 +593,11 @@ impl HelloTriangleApplication {
+         )
+     }
+ 
++
+     fn create_descriptor_sets(
+         pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
+         uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
+-    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>
++    ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>
+     {
+         uniform_buffers
+             .iter()
