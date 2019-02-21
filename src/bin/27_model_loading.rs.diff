@@ -1,0 +1,129 @@
+--- a/26_depth_buffering.rs
++++ b/27_model_loading.rs
+@@ -3,6 +3,7 @@ extern crate vulkano;
+ extern crate vulkano_win;
+ extern crate winit;
+ extern crate image;
++extern crate tobj;
+ extern crate cgmath;
+ 
+ use std::sync::{Arc, Mutex};
+@@ -92,7 +93,8 @@ const VALIDATION_LAYERS: &[&str] =  &[
+     "VK_LAYER_LUNARG_standard_validation"
+ ];
+ 
+-const TEXTURE_PATH: &str = "src/bin/23_statue.jpg";
++const TEXTURE_PATH: &str = "src/bin/27_texture.jpg";
++const MODEL_PATH: &str = "src/bin/27_model.obj";
+ 
+ /// Required device extensions
+ fn device_extensions() -> DeviceExtensions {
+@@ -142,27 +144,6 @@ struct UniformBufferObject {
+     proj: Matrix4<f32>,
+ }
+ 
+-fn vertices() -> [Vertex; 8] {
+-    [
+-        Vertex::new([-0.5, -0.5, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0]),
+-        Vertex::new([0.5, -0.5, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0]),
+-        Vertex::new([0.5, 0.5, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0]),
+-        Vertex::new([-0.5, 0.5, 0.0], [1.0, 1.0, 1.0], [1.0, 1.0]),
+-
+-        Vertex::new([-0.5, -0.5, -0.5], [1.0, 0.0, 0.0], [1.0, 0.0]),
+-        Vertex::new([0.5, -0.5, -0.5], [0.0, 1.0, 0.0], [0.0, 0.0]),
+-        Vertex::new([0.5, 0.5, -0.5], [0.0, 0.0, 1.0], [0.0, 1.0]),
+-        Vertex::new([-0.5, 0.5, -0.5], [1.0, 1.0, 1.0], [1.0, 1.0])
+-    ]
+-}
+-
+-fn indices() -> [u16; 12] {
+-    [
+-        0, 1, 2, 2, 3, 0,
+-        4, 5, 6, 6, 7, 4
+-    ]
+-}
+-
+ type DescriptorSetUBO = PersistentDescriptorSetBuf<Arc<CpuAccessibleBuffer<UniformBufferObject>>>;
+ type DescriptorSetImage = PersistentDescriptorSetImg<Arc<ImmutableImage<Format>>>;
+ type DescriptorSetResources = ((((), DescriptorSetUBO), DescriptorSetImage), PersistentDescriptorSetSampler);
+@@ -190,7 +171,7 @@ struct HelloTriangleApplication {
+     swap_chain_framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
+ 
+     vertex_buffer: Arc<BufferAccess + Send + Sync>,
+-    index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
++    index_buffer: Arc<TypedBufferAccess<Content=[u32]> + Send + Sync>,
+     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
+ 
+     descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, DescriptorSetResources>>>,
+@@ -232,8 +213,10 @@ impl HelloTriangleApplication {
+         let texture_image = Self::create_texture_image(&graphics_queue);
+         let image_sampler = Self::create_image_sampler(&device);
+ 
+-        let vertex_buffer = Self::create_vertex_buffer(&graphics_queue);
+-        let index_buffer = Self::create_index_buffer(&graphics_queue);
++        let (vertices, indices) = Self::load_model();
++
++        let vertex_buffer = Self::create_vertex_buffer(&graphics_queue, vertices);
++        let index_buffer = Self::create_index_buffer(&graphics_queue, indices);
+         let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
+ 
+         let descriptor_sets_pool = Self::create_descriptor_pool(&graphics_pipeline);
+@@ -590,18 +573,54 @@ impl HelloTriangleApplication {
+         Sampler::simple_repeat_linear(device.clone())
+     }
+ 
+-    fn create_vertex_buffer(graphics_queue: &Arc<Queue>) -> Arc<BufferAccess + Send + Sync> {
++    fn load_model() -> (Vec<Vertex>, Vec<u32>) {
++        use tobj::{load_obj};
++
++        let mut vertices = Vec::new();
++        let mut indices = Vec::new();
++
++        let (models, _materials) = load_obj(MODEL_PATH.as_ref()).unwrap();
++
++        for model in models.iter() {
++            let mesh = &model.mesh;
++
++            for index in &mesh.indices {
++                let ind_usize = *index as usize;
++                let pos = [
++                    mesh.positions[ind_usize * 3],
++                    mesh.positions[ind_usize * 3 + 1],
++                    mesh.positions[ind_usize * 3 + 2],
++                ];
++
++                let color = [1.0, 1.0, 1.0];
++
++                let tex_coord = [
++                    mesh.texcoords[ind_usize * 2],
++                    1.0 - mesh.texcoords[ind_usize * 2 + 1],
++                ];
++
++                let vertex = Vertex::new(pos, color, tex_coord);
++                vertices.push(vertex);
++                let index = indices.len() as u32;
++                indices.push(index);
++            }
++        }
++
++        (vertices, indices)
++    }
++
++    fn create_vertex_buffer(graphics_queue: &Arc<Queue>, vertices: Vec<Vertex>) -> Arc<BufferAccess + Send + Sync> {
+         let (buffer, future) = ImmutableBuffer::from_iter(
+-            vertices().iter().cloned(), BufferUsage::vertex_buffer(),
++            vertices.into_iter(), BufferUsage::vertex_buffer(),
+             graphics_queue.clone())
+             .unwrap();
+         future.flush().unwrap();
+         buffer
+     }
+ 
+-    fn create_index_buffer(graphics_queue: &Arc<Queue>) -> Arc<TypedBufferAccess<Content=[u16]> + Send + Sync> {
++    fn create_index_buffer(graphics_queue: &Arc<Queue>, indices: Vec<u32>) -> Arc<TypedBufferAccess<Content=[u32]> + Send + Sync> {
+         let (buffer, future) = ImmutableBuffer::from_iter(
+-            indices().iter().cloned(), BufferUsage::index_buffer(),
++            indices.into_iter(), BufferUsage::index_buffer(),
+             graphics_queue.clone())
+             .unwrap();
+         future.flush().unwrap();
