@@ -720,10 +720,10 @@ impl HelloTriangleApplication {
 
         match future {
             Ok(future) => {
-                // This makes sure the CPU stays in sync with the GPU
-                // Not sure if this means we don't need to store the previous_frame_end since we're
-                // explicitly waiting for it?
-                future.wait(None);
+                // This makes sure the CPU stays in sync with the GPU in situations when the CPU is
+                // running "too fast"
+                #[cfg(target_os = "macos")]
+                future.wait(None).unwrap();
                 
                 self.previous_frame_end = Some(Box::new(future) as Box<_>);
             }
