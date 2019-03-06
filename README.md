@@ -70,7 +70,7 @@ Then add this to your `Cargo.toml`:
 vulkano = "0.11.1"
 ```
 
-On macOS, copy [mac-env.sh](mac-env.sh), adapt the `VULKAN_SDK` path if necessary and `source` the file in your terminal. See also [vulkano-rs/vulkano#macos-and-ios-setup](https://github.com/vulkano-rs/vulkano#macos-and-ios-setup).
+On macOS, copy [mac-env.sh](mac-env.sh), adapt the `VULKAN_SDK` path if necessary and `source` the file in your terminal. See also [vulkano-rs/vulkano#macos-and-ios-specific-setup](https://github.com/vulkano-rs/vulkano#macos-and-ios-specific-setup).
 
 ## Drawing a triangle
 ### Setup
@@ -97,7 +97,7 @@ impl HelloTriangleApplication {
 }
 
 fn main() {
-    let mut app = HelloTriangleApplication::new();
+    let mut app = HelloTriangleApplication::initialize();
     app.main_loop();
 }
 ```
@@ -106,7 +106,7 @@ fn main() {
 Vulkano handles calling `vkDestroyXXX`/`vkFreeXXX` in the `Drop` implementation of all wrapper objects, so we will skip all cleanup code.
 
 ##### Integrating ~GLFW~ winit
-Instead of GLFW we're using [winit](https://github.com/tomaka/winit), an alternative window managment library written in pure Rust.
+Instead of GLFW we'll be using [winit](https://github.com/tomaka/winit), an alternative window managment library written in pure Rust.
 
 Add this to your Cargo.toml:
 ```
@@ -148,9 +148,8 @@ struct HelloTriangleApplication {
         loop {
             let mut done = false;
             self.events_loop.poll_events(|ev| {
-                match ev {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                    _ => ()
+                if let Event::WindowEvent { event: WindowEvent::CloseRequested, .. } = ev {
+                    done = true
                 }
             });
             if done {
@@ -219,10 +218,12 @@ struct HelloTriangleApplication {
     }
 ```
 
-[Complete code](src/bin/01_instance_creation.rs)
+[Diff](src/bin/01_instance_creation.rs.diff) / [Complete code](src/bin/01_instance_creation.rs)
 
 #### Validation layers
 https://vulkan-tutorial.com/Drawing_a_triangle/Setup/Validation_layers
+
+From here on we'll just link to the code instead of putting everything in the README:
 
 [Diff](src/bin/02_validation_layers.rs.diff) / [Complete code](src/bin/02_validation_layers.rs)
 
