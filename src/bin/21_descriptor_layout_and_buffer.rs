@@ -111,7 +111,6 @@ impl Vertex {
     }
 }
 
-#[allow(clippy:ref_in_deref)]
 impl_vertex!(Vertex, pos, color);
 
 #[allow(dead_code)]
@@ -516,25 +515,20 @@ impl HelloTriangleApplication {
         device: &Arc<Device>,
         num_buffers: usize,
         start_time: Instant,
-        dimensions_u32: [u32; 2]
+        dimensions: [u32; 2]
     ) -> Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>> {
-        let mut buffers = Vec::new();
+        let dimensions = [dimensions[0] as f32, dimensions[1] as f32];
 
-        let dimensions = [dimensions_u32[0] as f32, dimensions_u32[1] as f32];
-
+        // TODO!!: why here and not in draw_frame?
         let uniform_buffer = Self::update_uniform_buffer(start_time, dimensions);
 
-        for _ in 0..num_buffers {
-            let buffer = CpuAccessibleBuffer::from_data(
+        (0..num_buffers).map(|_| {
+            CpuAccessibleBuffer::from_data(
                 device.clone(),
                 BufferUsage::uniform_buffer_transfer_destination(),
                 uniform_buffer,
-            ).unwrap();
-
-            buffers.push(buffer);
-        }
-
-        buffers
+            ).unwrap()
+        }).collect()
     }
 
     fn create_command_buffers(&mut self) {
@@ -688,9 +682,9 @@ impl HelloTriangleApplication {
 
     fn update_uniform_buffer(start_time: Instant, dimensions: [f32; 2]) -> UniformBufferObject {
         let duration = Instant::now().duration_since(start_time);
-        let elapsed = (duration.as_secs() * 1000) + u64::from(duration.subsec_millis());
+        let time = (duration.as_secs() as f32) + (duration.subsec_millis() as f32) / 1000.0; // seconds
 
-        let model = Matrix4::from_angle_z(Rad::from(Deg(elapsed as f32 * 0.180)));
+        let model = Matrix4::from_angle_z(Rad::from(Deg(time * 90.0)));
 
         let view = Matrix4::look_at(
             Point3::new(2.0, 2.0, 2.0),
