@@ -163,6 +163,7 @@ struct HelloTriangleApplication {
     index_buffer: Arc<TypedBufferAccess<Content=[u16]> + Send + Sync>,
     uniform_buffers: Vec<Arc<CpuAccessibleBuffer<UniformBufferObject>>>,
 
+    // TODO!!: less insane type?
     descriptor_sets: Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>,
 
     command_buffers: Vec<Arc<AutoCommandBuffer>>,
@@ -198,6 +199,7 @@ impl HelloTriangleApplication {
         let index_buffer = Self::create_index_buffer(&graphics_queue);
         let uniform_buffers = Self::create_uniform_buffers(&device, swap_chain_images.len(), start_time, swap_chain.dimensions());
 
+        // TODO!!: save pool in struct?
         let descriptor_sets_pool = Self::create_descriptor_pool(&graphics_pipeline);
         let descriptor_sets = Self::create_descriptor_sets(&descriptor_sets_pool, &uniform_buffers);
 
@@ -477,7 +479,7 @@ impl HelloTriangleApplication {
             .polygon_mode_fill() // = default
             .line_width(1.0) // = default
             .cull_mode_back()
-            .front_face_counter_clockwise()
+            .front_face_counter_clockwise() // TODO!!?
             // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
             .blend_pass_through() // = default
             .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
@@ -544,17 +546,18 @@ impl HelloTriangleApplication {
     }
 
     fn create_descriptor_pool(graphics_pipeline: &Arc<GraphicsPipelineAbstract + Send + Sync>)
-        -> Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>
+        -> Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>
     {
-        Arc::new(
+        // TODO!!: why both arc and mutex?
+        // Arc::new(
             Mutex::new(
                 FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0)
             )
-        )
+        // )
     }
 
     fn create_descriptor_sets(
-        pool: &Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>,
+        pool: &Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>,
         uniform_buffers: &[Arc<CpuAccessibleBuffer<UniformBufferObject>>],
     ) -> Vec<Arc<FixedSizeDescriptorSet<Arc<GraphicsPipelineAbstract + Send + Sync>, ((), vulkano::descriptor::descriptor_set::PersistentDescriptorSetBuf<std::sync::Arc<vulkano::buffer::CpuAccessibleBuffer<UniformBufferObject>>>)>>>
     {
