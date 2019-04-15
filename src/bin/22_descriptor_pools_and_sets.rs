@@ -544,13 +544,9 @@ impl HelloTriangleApplication {
     }
 
     fn create_descriptor_pool(graphics_pipeline: &Arc<GraphicsPipelineAbstract + Send + Sync>)
-        -> Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>
+        -> Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>
     {
-        Arc::new(
-            Mutex::new(
-                FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0)
-            )
-        )
+        Mutex::new(FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0))
     }
 
     fn create_descriptor_sets(
