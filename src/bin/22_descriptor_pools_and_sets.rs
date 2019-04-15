@@ -544,13 +544,9 @@ impl HelloTriangleApplication {
     }
 
     fn create_descriptor_pool(graphics_pipeline: &Arc<GraphicsPipelineAbstract + Send + Sync>)
-        -> Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>
+        -> Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>
     {
-        Arc::new(
-            Mutex::new(
-                FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0)
-            )
-        )
+        Mutex::new(FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0))
     }
 
     fn create_descriptor_sets(
@@ -720,11 +716,11 @@ impl HelloTriangleApplication {
 
         match future {
             Ok(future) => {
-                // This makes sure the CPU stays in sync with the GPU
-                // Not sure if this means we don't need to store the previous_frame_end since we're
-                // explicitly waiting for it?
-                future.wait(None);
-                
+                // This makes sure the CPU stays in sync with the GPU in situations when the CPU is
+                // running "too fast"
+                #[cfg(target_os = "macos")]
+                future.wait(None).unwrap();
+
                 self.previous_frame_end = Some(Box::new(future) as Box<_>);
             }
             Err(vulkano::sync::FlushError::OutOfDate) => {

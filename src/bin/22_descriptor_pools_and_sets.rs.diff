@@ -78,18 +78,14 @@
              // NOTE: no depth_bias here, but on pipeline::raster::Rasterization
              .blend_pass_through() // = default
              .render_pass(Subpass::from(render_pass.clone(), 0).unwrap())
-@@ -537,12 +543,50 @@ impl HelloTriangleApplication {
+@@ -537,12 +543,46 @@ impl HelloTriangleApplication {
          buffers
      }
  
 +    fn create_descriptor_pool(graphics_pipeline: &Arc<GraphicsPipelineAbstract + Send + Sync>)
-+        -> Arc<Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>>
++        -> Mutex<FixedSizeDescriptorSetsPool<Arc<GraphicsPipelineAbstract + Send + Sync>>>
 +    {
-+        Arc::new(
-+            Mutex::new(
-+                FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0)
-+            )
-+        )
++        Mutex::new(FixedSizeDescriptorSetsPool::new(graphics_pipeline.clone(), 0))
 +    }
 +
 +    fn create_descriptor_sets(
@@ -131,7 +127,7 @@
                      .begin_render_pass(framebuffer.clone(), false, vec![[0.0, 0.0, 0.0, 1.0].into()])
                      .unwrap()
                      .draw_indexed(
-@@ -550,7 +594,7 @@ impl HelloTriangleApplication {
+@@ -550,7 +590,7 @@ impl HelloTriangleApplication {
                          &DynamicState::none(),
                          vec![self.vertex_buffer.clone()],
                          self.index_buffer.clone(),
@@ -140,7 +136,7 @@
                          ())
                      .unwrap()
                      .end_render_pass()
-@@ -629,6 +673,7 @@ impl HelloTriangleApplication {
+@@ -629,6 +669,7 @@ impl HelloTriangleApplication {
      #[allow(unused)]
      fn main_loop(&mut self) {
          loop {
@@ -148,3 +144,43 @@
              self.draw_frame();
  
              let mut done = false;
+@@ -662,6 +703,13 @@ impl HelloTriangleApplication {
+ 
+         let command_buffer = self.command_buffers[image_index].clone();
+ 
++<<<<<<< HEAD
++=======
++        // we're joining on the previous future but the CPU is running faster than the GPU so
++        // eventually it stutters, and jumps ahead to the newer frames.
++        //
++        // See vulkano issue 1135: https://github.com/vulkano-rs/vulkano/issues/1135
++>>>>>>> adc600d664023d8879fd10102fa648c581eb5080
+         let future = self.previous_frame_end.take().unwrap()
+             .join(acquire_future)
+             .then_execute(self.graphics_queue.clone(), command_buffer)
+@@ -671,6 +719,14 @@ impl HelloTriangleApplication {
+ 
+         match future {
+             Ok(future) => {
++<<<<<<< HEAD
++=======
++                // This makes sure the CPU stays in sync with the GPU in situations when the CPU is
++                // running "too fast"
++                #[cfg(target_os = "macos")]
++                future.wait(None).unwrap();
++                
++>>>>>>> adc600d664023d8879fd10102fa648c581eb5080
+                 self.previous_frame_end = Some(Box::new(future) as Box<_>);
+             }
+             Err(vulkano::sync::FlushError::OutOfDate) => {
+@@ -727,4 +783,8 @@ impl HelloTriangleApplication {
+ fn main() {
+     let mut app = HelloTriangleApplication::initialize();
+     app.main_loop();
+-}
+\ No newline at end of file
++<<<<<<< HEAD
++}
++=======
++}
++>>>>>>> adc600d664023d8879fd10102fa648c581eb5080
