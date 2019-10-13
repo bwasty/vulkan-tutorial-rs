@@ -116,7 +116,7 @@ And extend your main.rs:
 ```rust
 extern crate winit;
 
-use winit::{WindowBuilder, dpi::LogicalSize};
+use winit::{EventsLoop, WindowBuilder, dpi::LogicalSize};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
