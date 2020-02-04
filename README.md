@@ -48,7 +48,7 @@ Rust version of https://github.com/Overv/VulkanTutorial using [Vulkano](http://v
 
 ## Introduction
 This tutorial consists of the the ported code and notes about the differences between the original C++ and the Rust code.
-The [explanatory texts](https://vulkan-tutorial.com/Introduction) generally apply equally, although the Rust version is often shorter due to the use of [Vulkano](http://vulkano.rs/), a safe wrapper around the Vulkan API with some convencience functionality (the final triangle example is about 600 lines, compared to 950 lines in C++).
+The [explanatory texts](https://vulkan-tutorial.com/Introduction) generally apply equally, although the Rust version is often shorter due to the use of [Vulkano](http://vulkano.rs/), a safe wrapper around the Vulkan API with some convenience functionality (the final triangle example is about 600 lines, compared to 950 lines in C++).
 
 If you prefer a lower-level API closer to the Vulkan C API, have a look at [Ash](https://github.com/MaikKlein/ash) and [vulkan-tutorial-rust](https://github.com/Usami-Renko/vulkan-tutorial-rust).
 
