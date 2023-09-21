@@ -26,7 +26,7 @@ const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
 
 const VALIDATION_LAYERS: &[&str] =  &[
-    "VK_LAYER_LUNARG_standard_validation"
+    "VK_LAYER_KHRONOS_validation"
 ];
 
 #[cfg(all(debug_assertions))]
